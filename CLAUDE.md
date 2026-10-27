@@ -41,4 +41,5 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 
 - Planning is complete.
 - Phase 0 is done: Command Line Tools installed (Git 2.50, Python 3.9), repo created on branch `main`, first commit saved.
-- Next: Phase 1 (the core). Wait for the go-ahead before building.
+- Phase 1 has started. A read-only prototype (`index.html`, `app.js`, `style.css`) shows the home list, the fiction/non-fiction switch and the book screen, reading straight from `books.json`. Run it with `python3 -m http.server 8000`.
+- Next in Phase 1: adding, editing and rating books, saving to IndexedDB, and export/import. Wait for the go-ahead before building.

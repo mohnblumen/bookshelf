@@ -1,0 +1,256 @@
+/* Colours and fonts live here as variables, so the design session can change them in one place. */
+:root {
+  --bg: #faf8f4;
+  --text: #1f1d1a;
+  --muted: #8a847b;
+  --line: #e8e3da;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --serif: "Iowan Old Style", "Palatino", Georgia, serif;
+}
+
+/* Follows the iPhone's dark mode setting. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513;
+    --text: #efeae2;
+    --muted: #8f887d;
+    --line: #2b2925;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Keeps the app phone-width even on a laptop, and clear of the iPhone notch. */
+#app {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(24px, env(safe-area-inset-top)) 16px 48px;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 48px 0;
+}
+
+/* ---------- Home screen ---------- */
+
+.top h1 {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--line);
+  border-radius: 10px;
+  margin-bottom: 28px;
+}
+
+.tabs button {
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 0;
+  background: transparent;
+  color: var(--muted);
+  font: 500 14px var(--sans);
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.year {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.count {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.book-list {
+  list-style: none;
+  margin-bottom: 32px;
+}
+
+.book-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.author {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* ---------- Covers ---------- */
+
+.cover {
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.cover.small {
+  width: 44px;
+  height: 66px;
+}
+
+.cover.large {
+  width: 160px;
+  height: 240px;
+  margin: 8px auto 24px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.12);
+}
+
+.cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--hue) 22% 80%);
+  color: hsl(var(--hue) 25% 30%);
+  font-family: var(--serif);
+  font-size: 20px;
+}
+
+.cover.large.placeholder {
+  font-size: 64px;
+}
+
+/* ---------- Rating dots ---------- */
+
+.dots {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--text);
+}
+
+.dot.full {
+  background: var(--text);
+}
+
+.dot.half {
+  background: linear-gradient(90deg, var(--text) 50%, transparent 50%);
+}
+
+/* ---------- Book screen ---------- */
+
+.back {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 16px;
+  padding: 4px 0 12px;
+}
+
+.book {
+  text-align: center;
+}
+
+.book h1 {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.book .author {
+  font-size: 16px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.ratings {
+  margin: 28px 0;
+  border-top: 1px solid var(--line);
+}
+
+.rating-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.label {
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.icons {
+  display: flex;
+  gap: 6px;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+}
+
+.icon.on {
+  opacity: 1;
+}
+
+.review {
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  text-align: left;
+}
