@@ -32,6 +32,7 @@ let db; // the open database
 let books = [];
 let wantList = []; // books you'd like to read: just { id, title, author, added }
 let filter = "all"; // "all", "fiction" or "nonfiction"
+let view = loadView(); // "list" (v1) or "cards" (v2)
 let lastExport = null; // when a backup was last exported (a timestamp), or null if never
 let homeScroll = 0; // remembers how far down the home list you were
 let currentHash = ""; // the screen being shown…
@@ -304,7 +305,13 @@ function handleClick(event) {
     filter = tab.dataset.filter;
     refresh();
   }
-  if (event.target.closest(".book-row, .want-read")) {
+  const viewButton = event.target.closest("[data-view]");
+  if (viewButton) {
+    view = viewButton.dataset.view;
+    saveView(view);
+    refresh();
+  }
+  if (event.target.closest(".book-row, .book-card, .want-read")) {
     homeScroll = window.scrollY;
   }
   const rate = event.target.closest("[data-rate]");
@@ -369,10 +376,13 @@ function homeScreen() {
     const yearBooks = shown
       .filter((b) => b.year === year)
       .sort((a, b) => b.position - a.position); // most recently read first
+    const list = view === "cards"
+      ? `<ol class="book-grid">${yearBooks.map(bookCard).join("")}</ol>`
+      : `<ol class="book-list">${yearBooks.map(bookRow).join("")}</ol>`;
     return `
       <section>
         <h2 class="year">${year} <span class="count">${yearBooks.length}</span></h2>
-        <ol class="book-list">${yearBooks.map(bookRow).join("")}</ol>
+        ${list}
       </section>`;
   });
 
@@ -382,6 +392,7 @@ function homeScreen() {
         <h1>Mohnblume’s Bookshelf</h1>
         <a class="add-button" href="#add" aria-label="Log a book">+</a>
       </div>
+      ${viewTabs()}
       ${filterTabs()}
     </header>
     ${sections.join("") || '<p class="empty">No books here yet.</p>'}
@@ -395,6 +406,46 @@ function filterTabs() {
     `<button data-filter="${value}" class="${filter === value ? "active" : ""}">${label}</button>`
   );
   return `<nav class="tabs">${buttons.join("")}</nav>`;
+}
+
+// Two tabs that switch between the list design (v1) and the card design (v2).
+function viewTabs() {
+  const options = [["list", "v1 · List"], ["cards", "v2 · Cards"]];
+  const buttons = options.map(([value, label]) =>
+    `<button data-view="${value}" class="${view === value ? "active" : ""}">${label}</button>`
+  );
+  return `<nav class="tabs view-tabs">${buttons.join("")}</nav>`;
+}
+
+// localStorage is the browser's simple "remember this setting" box. It suits small preferences;
+// it can be unavailable (e.g. some private-browsing modes), so it's wrapped in try/catch.
+function loadView() {
+  try {
+    return localStorage.getItem("view") === "cards" ? "cards" : "list";
+  } catch (error) {
+    return "list";
+  }
+}
+
+function saveView(value) {
+  try {
+    localStorage.setItem("view", value);
+  } catch (error) {
+    // Not remembered this time; nothing else to do.
+  }
+}
+
+// v2: a big cover card, with the title, author and dots underneath.
+function bookCard(book) {
+  return `
+    <li>
+      <a class="book-card" href="#book/${book.id}">
+        ${cover(book, "card")}
+        <p class="title">${esc(book.title)}</p>
+        <p class="author">${esc(book.author)}</p>
+        ${dots(book)}
+      </a>
+    </li>`;
 }
 
 function bookRow(book) {
@@ -799,7 +850,7 @@ function dots(book) {
 // loading="lazy" means images further down the list only load as you scroll to them.
 function cover(book, size) {
   let src = book.coverPhoto || book.coverUrl;
-  if (src && size === "large" && !book.coverPhoto) src = src.replace("-M.jpg", "-L.jpg"); // sharper for the big one
+  if (src && size !== "small" && !book.coverPhoto) src = src.replace("-M.jpg", "-L.jpg"); // sharper for the big ones
   if (src) return `<img class="cover ${size}" src="${esc(src)}" loading="lazy" alt="" style="--hue: ${hue(book.title)}">`;
   return `<div class="cover ${size} placeholder" style="--hue: ${hue(book.title)}">${esc(book.title[0])}</div>`;
 }

@@ -655,3 +655,65 @@ img.cover.large {
   background: var(--line);
   margin-bottom: 4px;
 }
+
+/* ---------- v1 / v2 tabs and the card view (v2) ---------- */
+
+/* Same look as the Fiction/Non-fiction tabs, just closer to them. */
+.view-tabs {
+  margin-bottom: 8px;
+}
+
+/* Two big covers per row on a phone, three on anything wider. */
+.book-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px 14px;
+  margin: 14px 0 32px;
+}
+
+@media (min-width: 520px) {
+  .book-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.book-card {
+  display: block;
+}
+
+/* aspect-ratio keeps every card the shape of a book (2 wide : 3 tall), whatever the screen width. */
+.cover.card {
+  display: flex;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+}
+
+img.cover.card {
+  display: block;
+}
+
+.cover.card.placeholder {
+  font-size: 48px;
+}
+
+/* Long titles stop after two lines with "…" instead of pushing the grid out of line. */
+.book-card .title {
+  font-size: 15px;
+  margin-top: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.book-card .author {
+  font-size: 12px;
+}
+
+.book-card .dots {
+  margin-top: 5px;
+}
