@@ -5,6 +5,7 @@
 //   Add   (#add)            – the form for logging a new book
 //   Add   (#add/want/id)    – the same, filled in from a Want to read item
 //   Edit  (#edit/id)        – the same form, filled in, plus Delete
+//   Backup (#backup)        – export everything to a file, or import a file back
 // Everything is saved in the browser's database (IndexedDB). books.json is only the starting list.
 
 // ---------- Settings ----------
@@ -30,6 +31,7 @@ let db; // the open database
 let books = [];
 let wantList = []; // books you'd like to read: just { id, title, author, added }
 let filter = "all"; // "all", "fiction" or "nonfiction"
+let lastExport = null; // when a backup was last exported (a timestamp), or null if never
 let homeScroll = 0; // remembers how far down the home list you were
 let currentHash = ""; // the screen being shown…
 let previousHash = ""; // …and the one before it
@@ -53,7 +55,20 @@ function openDatabase() {
         database.createObjectStore("meta", { keyPath: "id" });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    // Another tab still has the old version open, so the upgrade has to wait. Say so instead of showing a blank page.
+    request.onblocked = () => {
+      document.getElementById("app").innerHTML =
+        '<p class="empty">Updating… If this doesn’t finish, close any other tabs with the bookshelf open.</p>';
+    };
+    request.onsuccess = () => {
+      const database = request.result;
+      // If a newer version of the app opens in another tab, step aside: close and reload to get the new code.
+      database.onversionchange = () => {
+        database.close();
+        location.reload();
+      };
+      resolve(database);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -79,6 +94,18 @@ function save(store, item) {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(store, "readwrite");
     transaction.objectStore(store).put(item);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+// Empties a store and fills it with `items`, all in one go: if anything fails, nothing changes.
+function replaceAll(store, items) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(store, "readwrite");
+    const objectStore = transaction.objectStore(store);
+    objectStore.clear();
+    for (const item of items) objectStore.put(item);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -137,6 +164,7 @@ async function start() {
     db = await openDatabase();
     books = await loadAll("books");
     wantList = await loadAll("wantToRead");
+    lastExport = (await load("meta", "lastExport"))?.at ?? null;
     await copyInStarterBooks();
   } catch (error) {
     document.getElementById("app").innerHTML =
@@ -200,6 +228,9 @@ function draw() {
   if (location.hash === "#add") {
     app.innerHTML = bookForm(null);
     window.scrollTo(0, 0);
+  } else if (location.hash === "#backup") {
+    app.innerHTML = backupScreen();
+    window.scrollTo(0, 0);
   } else if (wantMatch) {
     const item = wantList.find((w) => w.id === wantMatch[1]);
     app.innerHTML = bookForm(null, item);
@@ -244,12 +275,20 @@ function handleClick(event) {
   if (removeWant) {
     handleRemoveWant(removeWant.dataset.removeWant);
   }
+  if (event.target.closest("[data-export]")) {
+    exportBackup();
+  }
 }
 
-// Switching Fiction/Non-fiction on the form swaps which rating categories are shown (see style.css).
 function handleChange(event) {
+  // Switching Fiction/Non-fiction on the form swaps which rating categories are shown (see style.css).
   if (event.target.name === "type") {
     event.target.form.dataset.type = event.target.value;
+  }
+  // A backup file was picked on the Backup screen.
+  if (event.target.name === "import-file" && event.target.files[0]) {
+    importBackup(event.target.files[0]);
+    event.target.value = ""; // so picking the same file again still counts as a change
   }
 }
 
@@ -286,7 +325,8 @@ function homeScreen() {
       ${filterTabs()}
     </header>
     ${sections.join("") || '<p class="empty">No books here yet.</p>'}
-    ${wantSection()}`;
+    ${wantSection()}
+    <a class="backup-link" href="#backup">Backup · ${lastExport ? "last saved " + formatDate(lastExport) : "never saved"}</a>`;
 }
 
 function filterTabs() {
@@ -357,6 +397,84 @@ async function handleRemoveWant(id) {
   await remove("wantToRead", id);
   wantList = wantList.filter((w) => w.id !== id);
   refresh();
+}
+
+// ---------- Backup screen ----------
+// Your books live only in this browser, so a backup file is the safety net.
+// It's plain JSON, the same format as books.json, so you can open and read it.
+
+const BACKUP_LABEL = "mohnblumes-bookshelf"; // written into every backup, so import can recognise one
+
+function backupScreen() {
+  return `
+    <a class="back" href="#">‹ Back</a>
+    <div class="backup">
+      <h1>Backup</h1>
+      <p>Your books are saved only in this browser. Export a copy every so often and keep it somewhere safe, like iCloud Drive.</p>
+      <button class="save" type="button" data-export>Export backup</button>
+      <p class="hint">${lastExport ? "Last exported " + formatDate(lastExport) : "Never exported"} · ${books.length} books, ${wantList.length} want to read</p>
+
+      <h2>Restore</h2>
+      <p>Load a backup file. This <strong>replaces</strong> everything currently in the app with what’s in the file.</p>
+      <label class="import-button">Import backup<input type="file" name="import-file" accept=".json,application/json"></label>
+      <p class="status" role="status"></p>
+    </div>`;
+}
+
+async function exportBackup() {
+  const backup = {
+    app: BACKUP_LABEL,
+    version: 1,
+    exported: new Date().toISOString(),
+    books,
+    wantToRead: wantList,
+  };
+  // A "Blob" is a chunk of file data made in the browser. Linking to it and "clicking" the link downloads it.
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `mohnblumes-bookshelf-${localDate()}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href); // tidy up: the browser no longer needs to hold the file
+
+  lastExport = Date.now();
+  await save("meta", { id: "lastExport", at: lastExport });
+  refresh();
+}
+
+async function importBackup(file) {
+  const status = () => document.querySelector(".status");
+
+  // Check the file really is a backup before trusting it with your books.
+  let backup;
+  try {
+    backup = JSON.parse(await file.text());
+  } catch (error) {
+    status().textContent = "That file isn’t a backup (it couldn’t be read as JSON). Nothing was changed.";
+    return;
+  }
+  const looksRight =
+    backup.app === BACKUP_LABEL &&
+    Array.isArray(backup.books) &&
+    backup.books.every((b) => b.id && b.title && b.year && CATEGORIES[b.type]);
+  if (!looksRight) {
+    status().textContent = "That file isn’t a Mohnblume’s Bookshelf backup. Nothing was changed.";
+    return;
+  }
+
+  const newWant = Array.isArray(backup.wantToRead) ? backup.wantToRead : [];
+  const message =
+    `Replace your ${books.length} books and ${wantList.length} want to read ` +
+    `with the ${backup.books.length} books and ${newWant.length} want to read in this backup` +
+    ` from ${formatDate(Date.parse(backup.exported))}?`;
+  if (!confirm(message)) return;
+
+  await replaceAll("books", backup.books);
+  await replaceAll("wantToRead", newWant);
+  books = backup.books;
+  wantList = newWant;
+  refresh();
+  status().textContent = `Done: ${books.length} books and ${wantList.length} want to read restored.`;
 }
 
 // ---------- Book screen ----------
@@ -544,6 +662,17 @@ function hue(text) {
   let n = 0;
   for (const c of text) n = (n * 31 + c.charCodeAt(0)) % 360;
   return n;
+}
+
+// A timestamp as a short date in your phone's own style, e.g. "27 Oct 2026".
+function formatDate(timestamp) {
+  return new Date(timestamp).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+// Today's date as 2026-10-27, for file names (this order sorts correctly in a folder).
+function localDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // A random label like "mf3k9x2a7q" so every book can be told apart.

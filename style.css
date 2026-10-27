@@ -531,3 +531,59 @@ legend {
   font: 500 15px var(--sans);
   cursor: pointer;
 }
+
+/* ---------- Backup ---------- */
+
+.backup-link {
+  display: block;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 40px;
+}
+
+.backup h1 {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.backup h2 {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 36px 0 8px;
+}
+
+.backup p {
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.backup .hint {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* The real file picker is hidden; the label around it is what you tap. */
+.import-button {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  border: 1px solid var(--text);
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import-button input {
+  display: none;
+}
+
+.status {
+  color: var(--muted);
+  text-align: center;
+  margin-top: 12px;
+}
