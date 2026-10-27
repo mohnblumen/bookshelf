@@ -1,10 +1,11 @@
-// Bookshelf app.
-// Four screens, chosen by the end of the web address:
-//   Home  (#)          – books grouped by year, newest first
-//   Book  (#book/id)   – one book's ratings and review
-//   Add   (#add)       – the form for logging a new book
-//   Edit  (#edit/id)   – the same form, filled in, plus Delete
-// Books are saved in the browser's database (IndexedDB). books.json is only the starting list.
+// Mohnblume's Bookshelf.
+// Screens, chosen by the end of the web address:
+//   Home  (#)               – books grouped by year (newest first), then the Want to read list
+//   Book  (#book/id)        – one book's details, ratings and review
+//   Add   (#add)            – the form for logging a new book
+//   Add   (#add/want/id)    – the same, filled in from a Want to read item
+//   Edit  (#edit/id)        – the same form, filled in, plus Delete
+// Everything is saved in the browser's database (IndexedDB). books.json is only the starting list.
 
 // ---------- Settings ----------
 
@@ -27,51 +28,106 @@ const ICONS = {
 
 let db; // the open database
 let books = [];
+let wantList = []; // books you'd like to read: just { id, title, author, added }
 let filter = "all"; // "all", "fiction" or "nonfiction"
 let homeScroll = 0; // remembers how far down the home list you were
 let currentHash = ""; // the screen being shown…
 let previousHash = ""; // …and the one before it
 
 // ---------- Saving (IndexedDB) ----------
-// The browser's built-in database. Books saved here are still there after you close the page.
+// The browser's built-in database. What's saved here is still there after you close the page.
+// It has separate "stores" (like drawers): "books", "wantToRead", and "meta" for the app's own notes.
 // Its commands report back later rather than straight away, so each one is wrapped in a Promise
 // (a "result coming soon"), which lets the rest of the code simply `await` it.
 
 function openDatabase() {
+  // Bumping the version number (1 → 2) tells the browser the layout changed,
+  // so it runs onupgradeneeded once to add what's missing. Saved books are untouched.
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("bookshelf", 1);
-    // Runs only the very first time: creates a "books" store where each book is found by its id.
-    request.onupgradeneeded = () => request.result.createObjectStore("books", { keyPath: "id" });
+    const request = indexedDB.open("bookshelf", 2);
+    request.onupgradeneeded = (event) => {
+      const database = request.result;
+      if (event.oldVersion < 1) database.createObjectStore("books", { keyPath: "id" });
+      if (event.oldVersion < 2) {
+        database.createObjectStore("wantToRead", { keyPath: "id" });
+        database.createObjectStore("meta", { keyPath: "id" });
+      }
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-function loadAllBooks() {
+function load(store, id) {
   return new Promise((resolve, reject) => {
-    const request = db.transaction("books").objectStore("books").getAll();
+    const request = db.transaction(store).objectStore(store).get(id);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-// Adds a new book, or replaces the saved copy of a book with the same id.
-function saveBook(book) {
+function loadAll(store) {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction("books", "readwrite");
-    transaction.objectStore("books").put(book);
+    const request = db.transaction(store).objectStore(store).getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Adds a new item, or replaces the saved copy of an item with the same id.
+function save(store, item) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(store, "readwrite");
+    transaction.objectStore(store).put(item);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
 }
 
-function deleteBook(id) {
+function remove(store, id) {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction("books", "readwrite");
-    transaction.objectStore("books").delete(id);
+    const transaction = db.transaction(store, "readwrite");
+    transaction.objectStore(store).delete(id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
+}
+
+// ---------- Open Library (book details from the internet) ----------
+// A free book database: no account or key needed. See docs/OPEN_LIBRARY.md.
+
+// Finds the year a book was first published. Gives back:
+//   a year (e.g. 1977)  – found it
+//   null                – looked, but Open Library doesn't know this book
+//   undefined           – couldn't ask (no internet?), so try again another time
+async function lookUpPublished(title, author) {
+  // A precise search first (title + author). If that finds nothing, a looser general search,
+  // which catches books listed under another title, like The Dinner (Het Diner).
+  const searches = [{ title, author }, { q: `${title} ${author}` }];
+  for (const search of searches) {
+    const params = new URLSearchParams({ ...search, limit: 1, fields: "first_publish_year" });
+    try {
+      const response = await fetch(`https://openlibrary.org/search.json?${params}`);
+      const data = await response.json();
+      const year = data.docs[0]?.first_publish_year;
+      if (year) return year;
+    } catch (error) {
+      return undefined;
+    }
+  }
+  return null;
+}
+
+// Fills in the publication year for any book that hasn't been looked up yet, one at a time.
+async function fillInPublished() {
+  const missing = books.filter((b) => b.published === undefined);
+  for (const book of missing) {
+    const year = await lookUpPublished(book.title, book.author);
+    if (year === undefined) return; // no internet: stop, and try again next time the app opens
+    book.published = year;
+    await save("books", book);
+  }
+  if (missing.length > 0) refresh();
 }
 
 // ---------- Starting up ----------
@@ -79,13 +135,9 @@ function deleteBook(id) {
 async function start() {
   try {
     db = await openDatabase();
-    books = await loadAllBooks();
-    if (books.length === 0) {
-      // First visit: copy the starting list from books.json into the database.
-      const response = await fetch("books.json");
-      books = await response.json();
-      for (const book of books) await saveBook(book);
-    }
+    books = await loadAll("books");
+    wantList = await loadAll("wantToRead");
+    await copyInStarterBooks();
   } catch (error) {
     document.getElementById("app").innerHTML =
       '<p class="empty">Couldn’t load your books. Open the app through localhost, not by double-clicking the file.</p>';
@@ -95,20 +147,62 @@ async function start() {
   window.addEventListener("hashchange", render);
   app.addEventListener("click", handleClick);
   app.addEventListener("change", handleChange);
-  app.addEventListener("submit", handleSave);
+  app.addEventListener("submit", handleSubmit);
   render();
+  fillInPublished(); // runs in the background; no `await`, so the app doesn't wait for it
 }
 
-// Draws whichever screen the address points to.
+// books.json is the starter list, and it can grow (like when the 2025 list was added).
+// This copies in any starter book this browser hasn't had before. It remembers which ones
+// it has copied, so a book you delete stays deleted instead of coming back.
+async function copyInStarterBooks() {
+  const response = await fetch("books.json");
+  const starters = await response.json();
+  const record = await load("meta", "starterIds");
+
+  let copied;
+  if (record) copied = record.ids;
+  else if (books.length === 0) copied = []; // a brand new browser: copy everything
+  else copied = starters.filter((b) => b.year === 2026).map((b) => b.id); // the 2026 list was copied before this tracking existed
+
+  for (const book of starters) {
+    if (!copied.includes(book.id)) {
+      await save("books", book);
+      books.push(book);
+    }
+  }
+  await save("meta", { id: "starterIds", ids: starters.map((b) => b.id) });
+}
+
+// Moving to a new screen: remember where we came from, then draw it.
 function render() {
   previousHash = currentHash;
   currentHash = location.hash;
+  draw();
+}
+
+// Redraws the current screen in place after a background update, keeping the scroll position.
+// Forms are left alone so nothing you're typing gets wiped.
+function refresh() {
+  if (location.hash.startsWith("#add") || location.hash.startsWith("#edit/")) return;
+  const scroll = window.scrollY;
+  draw();
+  window.scrollTo(0, scroll);
+}
+
+// Draws whichever screen the address points to.
+function draw() {
   const app = document.getElementById("app");
   const bookMatch = location.hash.match(/^#book\/(.+)$/);
   const editMatch = location.hash.match(/^#edit\/(.+)$/);
+  const wantMatch = location.hash.match(/^#add\/want\/(.+)$/);
 
   if (location.hash === "#add") {
     app.innerHTML = bookForm(null);
+    window.scrollTo(0, 0);
+  } else if (wantMatch) {
+    const item = wantList.find((w) => w.id === wantMatch[1]);
+    app.innerHTML = bookForm(null, item);
     window.scrollTo(0, 0);
   } else if (bookMatch || editMatch) {
     const book = books.find((b) => b.id === (bookMatch || editMatch)[1]);
@@ -128,9 +222,9 @@ function handleClick(event) {
   const tab = event.target.closest("[data-filter]");
   if (tab) {
     filter = tab.dataset.filter;
-    render();
+    refresh();
   }
-  if (event.target.closest(".book-row")) {
+  if (event.target.closest(".book-row, .want-read")) {
     homeScroll = window.scrollY;
   }
   const rate = event.target.closest("[data-rate]");
@@ -142,9 +236,13 @@ function handleClick(event) {
     const value = Number(icons.dataset.value);
     icons.querySelectorAll("svg").forEach((svg, i) => svg.classList.toggle("on", i < value));
   }
-  const remove = event.target.closest("[data-delete]");
-  if (remove) {
-    handleDelete(remove.dataset.delete);
+  const deleteButton = event.target.closest("[data-delete]");
+  if (deleteButton) {
+    handleDelete(deleteButton.dataset.delete);
+  }
+  const removeWant = event.target.closest("[data-remove-want]");
+  if (removeWant) {
+    handleRemoveWant(removeWant.dataset.removeWant);
   }
 }
 
@@ -153,6 +251,13 @@ function handleChange(event) {
   if (event.target.name === "type") {
     event.target.form.dataset.type = event.target.value;
   }
+}
+
+// There are two forms: the little "Want to read" box and the big book form.
+function handleSubmit(event) {
+  event.preventDefault(); // stops the browser's default for forms, which is to reload the page
+  if (event.target.classList.contains("want-add")) handleAddWant(event.target);
+  else handleSave(event.target);
 }
 
 // ---------- Home screen ----------
@@ -175,12 +280,13 @@ function homeScreen() {
   return `
     <header class="top">
       <div class="top-row">
-        <h1>Bookshelf</h1>
-        <a class="add-button" href="#add">＋ Log a book</a>
+        <h1>Mohnblume’s Bookshelf</h1>
+        <a class="add-button" href="#add" aria-label="Log a book">+</a>
       </div>
       ${filterTabs()}
     </header>
-    ${sections.join("") || '<p class="empty">No books here yet.</p>'}`;
+    ${sections.join("") || '<p class="empty">No books here yet.</p>'}
+    ${wantSection()}`;
 }
 
 function filterTabs() {
@@ -205,10 +311,60 @@ function bookRow(book) {
     </li>`;
 }
 
+// ---------- Want to read (bottom of the home screen) ----------
+
+function wantSection() {
+  const items = [...wantList].sort((a, b) => a.added - b.added); // in the order you added them
+  const rows = items.map((item) => `
+    <li>
+      <div class="want-text">
+        <span class="want-title">${esc(item.title)}</span>
+        ${item.author ? `<span class="want-author">${esc(item.author)}</span>` : ""}
+      </div>
+      <a class="want-read" href="#add/want/${item.id}" aria-label="Log ${esc(item.title)} as read">Read</a>
+      <button class="want-remove" data-remove-want="${item.id}" aria-label="Remove ${esc(item.title)}">×</button>
+    </li>`);
+
+  return `
+    <section class="want">
+      <h2 class="year">Want to read <span class="count">${items.length || ""}</span></h2>
+      <ul class="want-list">${rows.join("")}</ul>
+      <form class="want-add">
+        <input name="want" placeholder="Title by Author" autocomplete="off" aria-label="Add a book you want to read">
+        <button type="submit">Add</button>
+      </form>
+    </section>`;
+}
+
+async function handleAddWant(form) {
+  const text = form.elements.want.value.trim();
+  if (!text) return;
+  // "Stand by Me by Stephen King" → split at the last " by ", so titles containing "by" still work.
+  const split = text.toLowerCase().lastIndexOf(" by ");
+  const item = {
+    id: newId(),
+    title: split > 0 ? text.slice(0, split).trim() : text,
+    author: split > 0 ? text.slice(split + 4).trim() : "",
+    added: Date.now(),
+  };
+  await save("wantToRead", item);
+  wantList.push(item);
+  refresh();
+  document.querySelector(".want-add input").focus(); // ready to add another
+}
+
+async function handleRemoveWant(id) {
+  await remove("wantToRead", id);
+  wantList = wantList.filter((w) => w.id !== id);
+  refresh();
+}
+
 // ---------- Book screen ----------
 
 function bookScreen(book) {
   const rows = CATEGORIES[book.type].map((category) => ratingRow(category, book.ratings[category]));
+  // undefined = still being looked up; null = Open Library didn't know it
+  const published = book.published ?? (book.published === undefined ? "…" : "—");
   return `
     <div class="bar">
       <a class="back" href="#">‹ Back</a>
@@ -218,7 +374,11 @@ function bookScreen(book) {
       ${cover(book, "large")}
       <h1>${esc(book.title)}</h1>
       <p class="author">${esc(book.author)}</p>
-      <p class="meta">${book.type === "fiction" ? "Fiction" : "Non-fiction"} · ${book.year}</p>
+      <p class="meta">${book.type === "fiction" ? "Fiction" : "Non-fiction"}</p>
+      <dl class="facts">
+        <div><dt>Published</dt><dd>${published}</dd></div>
+        <div><dt>Read</dt><dd>${book.year}</dd></div>
+      </dl>
       <div class="ratings">${rows.join("")}</div>
       ${average(book) === null ? '<p class="hint unrated">Not rated yet. Tap Edit to rate it.</p>' : ""}
       ${book.review ? `<p class="review">${esc(book.review)}</p>` : ""}
@@ -239,11 +399,14 @@ function ratingRow(category, score) {
 
 // ---------- Add / edit screen ----------
 // One form does both jobs. With no book it's blank ("Log a book"); with a book it's filled in ("Edit").
+// `from` is an optional Want to read item, used to fill in the title and author.
 
-function bookForm(book) {
+function bookForm(book, from) {
   const editing = book !== null;
   const type = editing ? book.type : "fiction";
   const ratings = editing ? book.ratings : {};
+  const title = editing ? book.title : from?.title ?? "";
+  const author = editing ? book.author : from?.author ?? "";
 
   // Both sets of categories are drawn; the stylesheet shows only the one matching the chosen type.
   const groups = Object.entries(CATEGORIES).map(([groupType, categories]) => `
@@ -253,15 +416,18 @@ function bookForm(book) {
 
   return `
     <a class="back" href="${editing ? `#book/${book.id}` : "#"}">‹ Cancel</a>
-    <form class="book-form" data-type="${type}" data-id="${editing ? book.id : ""}">
+    <form class="book-form" data-type="${type}" data-id="${editing ? book.id : ""}" data-want="${from?.id ?? ""}">
       <h1>${editing ? "Edit book" : "Log a book"}</h1>
-      <label>Title <input name="title" required autocomplete="off" value="${editing ? esc(book.title) : ""}"></label>
-      <label>Author <input name="author" required autocomplete="off" value="${editing ? esc(book.author) : ""}"></label>
+      <label>Title <input name="title" required autocomplete="off" value="${esc(title)}"></label>
+      <label>Author <input name="author" required autocomplete="off" value="${esc(author)}"></label>
       <div class="choice">
         <label><input type="radio" name="type" value="fiction" ${type === "fiction" ? "checked" : ""}> Fiction</label>
         <label><input type="radio" name="type" value="nonfiction" ${type === "nonfiction" ? "checked" : ""}> Non-fiction</label>
       </div>
-      <label>Year read <input name="year" type="number" inputmode="numeric" value="${editing ? book.year : new Date().getFullYear()}" required></label>
+      <div class="pair">
+        <label>Year read <input name="year" type="number" inputmode="numeric" value="${editing ? book.year : new Date().getFullYear()}" required></label>
+        <label>Published <input name="published" type="number" inputmode="numeric" value="${editing ? book.published ?? "" : ""}" placeholder="Auto"></label>
+      </div>
       <fieldset>
         <legend>Ratings <span class="hint">optional · tap again to clear</span></legend>
         ${groups.join("")}
@@ -287,12 +453,11 @@ function rateInput(category, score) {
     </div>`;
 }
 
-async function handleSave(event) {
-  event.preventDefault(); // stops the browser's default for forms, which is to reload the page
-  const form = event.target;
+async function handleSave(form) {
   const existing = books.find((b) => b.id === form.dataset.id); // undefined when adding a new book
   const type = form.elements.type.value;
   const year = Number(form.elements.year.value);
+  const publishedText = form.elements.published.value;
 
   // Only keep the categories that were actually scored, for the chosen type.
   const ratings = {};
@@ -314,12 +479,16 @@ async function handleSave(event) {
     type,
     year,
     position: keepsPlace ? existing.position : Math.max(0, ...positions) + 1,
+    published: publishedText ? Number(publishedText) : undefined, // blank = look it up
     ratings,
     review: form.elements.review.value.trim(),
   };
 
-  await saveBook(book);
+  await save("books", book);
   books = books.filter((b) => b.id !== book.id).concat(book);
+
+  // Logged from the Want to read list? Then it comes off that list.
+  if (form.dataset.want) await handleRemoveWant(form.dataset.want);
 
   if (existing) {
     // Back to the book's page. If that's where we came from, step back so "back" doesn't reopen the form.
@@ -329,13 +498,14 @@ async function handleSave(event) {
     homeScroll = 0;
     location.replace("#"); // back to home, replacing the form in history
   }
+  fillInPublished(); // looks up the year in the background if it was left blank
 }
 
 async function handleDelete(id) {
   const book = books.find((b) => b.id === id);
   // confirm() shows the phone's own "OK / Cancel" pop-up, a safety net against accidental taps.
   if (!confirm(`Delete “${book.title}”? This can’t be undone.`)) return;
-  await deleteBook(id);
+  await remove("books", id);
   books = books.filter((b) => b.id !== id);
   location.replace("#");
 }

@@ -62,17 +62,24 @@ a {
 
 .top h1 {
   font-family: var(--serif);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 600;
 }
 
+/* A round "+" button. Flexbox centres the plus inside the circle. */
 .add-button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   background: var(--text);
   color: var(--bg);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 999px;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
 }
 
 .tabs {
@@ -412,5 +419,115 @@ legend {
   background: transparent;
   color: var(--danger);
   font: 500 16px var(--sans);
+  cursor: pointer;
+}
+
+/* ---------- Published / Read (book screen) ---------- */
+
+/* <dl> is a "description list": pairs of a term (<dt>) and its value (<dd>). */
+.facts {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 16px;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.facts dd {
+  font-family: var(--serif);
+  font-size: 20px;
+  margin-top: 2px;
+}
+
+/* Two form fields side by side (Year read + Published). */
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ---------- Want to read (bottom of home) ---------- */
+
+.want {
+  margin-top: 8px;
+}
+
+.want-list {
+  list-style: none;
+}
+
+.want-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.want-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.want-title {
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.want-author {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.want-read {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.want-remove {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.want-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* 17px again stops the iPhone zooming in on the box. */
+.want-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: 17px var(--sans);
+}
+
+.want-add button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: var(--line);
+  color: var(--text);
+  font: 500 15px var(--sans);
   cursor: pointer;
 }
