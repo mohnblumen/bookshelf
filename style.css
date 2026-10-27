@@ -4,6 +4,7 @@
   --text: #1f1d1a;
   --muted: #8a847b;
   --line: #e8e3da;
+  --danger: #b3261e;
   --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   --serif: "Iowan Old Style", "Palatino", Georgia, serif;
 }
@@ -15,6 +16,7 @@
     --text: #efeae2;
     --muted: #8f887d;
     --line: #2b2925;
+    --danger: #f2a49c;
   }
 }
 
@@ -204,8 +206,25 @@ a {
   padding: 4px 0 12px;
 }
 
+/* The row with "‹ Back" on the left and "Edit" on the right. */
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.edit {
+  font-size: 16px;
+  font-weight: 500;
+  padding: 4px 0 12px;
+}
+
 .book {
   text-align: center;
+}
+
+.unrated {
+  margin: -16px 0 24px;
 }
 
 .book h1 {
@@ -270,17 +289,17 @@ a {
   text-align: left;
 }
 
-/* ---------- Add screen ---------- */
+/* ---------- Add / edit screen ---------- */
 
-.add-form h1 {
+.book-form h1 {
   font-family: var(--serif);
   font-size: 26px;
   font-weight: 600;
   margin-bottom: 20px;
 }
 
-.add-form label,
-.add-form legend {
+.book-form label,
+.book-form legend {
   display: block;
   color: var(--muted);
   font-size: 14px;
@@ -288,8 +307,8 @@ a {
 }
 
 /* 17px text stops the iPhone zooming in when you tap a field (it zooms anything under 16px). */
-.add-form input:not([type="radio"]),
-.add-form textarea {
+.book-form input:not([type="radio"]),
+.book-form textarea {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -301,7 +320,7 @@ a {
   font: 17px var(--sans);
 }
 
-.add-form textarea {
+.book-form textarea {
   font-family: var(--serif);
   line-height: 1.5;
   resize: vertical;
@@ -356,8 +375,8 @@ legend {
   display: none;
 }
 
-.add-form[data-type="fiction"] [data-for="fiction"],
-.add-form[data-type="nonfiction"] [data-for="nonfiction"] {
+.book-form[data-type="fiction"] [data-for="fiction"],
+.book-form[data-type="nonfiction"] [data-for="nonfiction"] {
   display: block;
 }
 
@@ -369,7 +388,7 @@ legend {
   cursor: pointer;
 }
 
-.add-form .icon {
+.book-form .icon {
   width: 24px;
   height: 24px;
 }
@@ -382,5 +401,16 @@ legend {
   background: var(--text);
   color: var(--bg);
   font: 600 16px var(--sans);
+  cursor: pointer;
+}
+
+.delete {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font: 500 16px var(--sans);
   cursor: pointer;
 }

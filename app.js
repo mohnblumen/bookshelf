@@ -1,8 +1,9 @@
 // Bookshelf app.
-// Three screens, chosen by the end of the web address:
+// Four screens, chosen by the end of the web address:
 //   Home  (#)          – books grouped by year, newest first
 //   Book  (#book/id)   – one book's ratings and review
 //   Add   (#add)       – the form for logging a new book
+//   Edit  (#edit/id)   – the same form, filled in, plus Delete
 // Books are saved in the browser's database (IndexedDB). books.json is only the starting list.
 
 // ---------- Settings ----------
@@ -28,6 +29,8 @@ let db; // the open database
 let books = [];
 let filter = "all"; // "all", "fiction" or "nonfiction"
 let homeScroll = 0; // remembers how far down the home list you were
+let currentHash = ""; // the screen being shown…
+let previousHash = ""; // …and the one before it
 
 // ---------- Saving (IndexedDB) ----------
 // The browser's built-in database. Books saved here are still there after you close the page.
@@ -52,10 +55,20 @@ function loadAllBooks() {
   });
 }
 
+// Adds a new book, or replaces the saved copy of a book with the same id.
 function saveBook(book) {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction("books", "readwrite");
     transaction.objectStore("books").put(book);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function deleteBook(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("books", "readwrite");
+    transaction.objectStore("books").delete(id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -88,15 +101,22 @@ async function start() {
 
 // Draws whichever screen the address points to.
 function render() {
+  previousHash = currentHash;
+  currentHash = location.hash;
   const app = document.getElementById("app");
-  const match = location.hash.match(/^#book\/(.+)$/);
+  const bookMatch = location.hash.match(/^#book\/(.+)$/);
+  const editMatch = location.hash.match(/^#edit\/(.+)$/);
 
   if (location.hash === "#add") {
-    app.innerHTML = addScreen();
+    app.innerHTML = bookForm(null);
     window.scrollTo(0, 0);
-  } else if (match) {
-    const book = books.find((b) => b.id === match[1]);
-    app.innerHTML = book ? bookScreen(book) : '<p class="empty">Book not found. <a href="#">Back</a></p>';
+  } else if (bookMatch || editMatch) {
+    const book = books.find((b) => b.id === (bookMatch || editMatch)[1]);
+    if (!book) {
+      location.replace("#"); // e.g. going "back" to a book that's just been deleted
+      return;
+    }
+    app.innerHTML = bookMatch ? bookScreen(book) : bookForm(book);
     window.scrollTo(0, 0);
   } else {
     app.innerHTML = homeScreen();
@@ -121,6 +141,10 @@ function handleClick(event) {
     icons.dataset.value = Number(icons.dataset.value) === score ? "" : score;
     const value = Number(icons.dataset.value);
     icons.querySelectorAll("svg").forEach((svg, i) => svg.classList.toggle("on", i < value));
+  }
+  const remove = event.target.closest("[data-delete]");
+  if (remove) {
+    handleDelete(remove.dataset.delete);
   }
 }
 
@@ -186,13 +210,17 @@ function bookRow(book) {
 function bookScreen(book) {
   const rows = CATEGORIES[book.type].map((category) => ratingRow(category, book.ratings[category]));
   return `
-    <a class="back" href="#">‹ Back</a>
+    <div class="bar">
+      <a class="back" href="#">‹ Back</a>
+      <a class="edit" href="#edit/${book.id}">Edit</a>
+    </div>
     <article class="book">
       ${cover(book, "large")}
       <h1>${esc(book.title)}</h1>
       <p class="author">${esc(book.author)}</p>
       <p class="meta">${book.type === "fiction" ? "Fiction" : "Non-fiction"} · ${book.year}</p>
       <div class="ratings">${rows.join("")}</div>
+      ${average(book) === null ? '<p class="hint unrated">Not rated yet. Tap Edit to rate it.</p>' : ""}
       ${book.review ? `<p class="review">${esc(book.review)}</p>` : ""}
     </article>`;
 }
@@ -209,53 +237,60 @@ function ratingRow(category, score) {
     </div>`;
 }
 
-// ---------- Add screen ----------
+// ---------- Add / edit screen ----------
+// One form does both jobs. With no book it's blank ("Log a book"); with a book it's filled in ("Edit").
 
-function addScreen() {
+function bookForm(book) {
+  const editing = book !== null;
+  const type = editing ? book.type : "fiction";
+  const ratings = editing ? book.ratings : {};
+
   // Both sets of categories are drawn; the stylesheet shows only the one matching the chosen type.
-  const groups = Object.entries(CATEGORIES).map(([type, categories]) => `
-    <div class="rate-group" data-for="${type}">
-      ${categories.map(rateInput).join("")}
+  const groups = Object.entries(CATEGORIES).map(([groupType, categories]) => `
+    <div class="rate-group" data-for="${groupType}">
+      ${categories.map((category) => rateInput(category, ratings[category])).join("")}
     </div>`);
 
   return `
-    <a class="back" href="#">‹ Cancel</a>
-    <form class="add-form" data-type="fiction">
-      <h1>Log a book</h1>
-      <label>Title <input name="title" required autocomplete="off"></label>
-      <label>Author <input name="author" required autocomplete="off"></label>
+    <a class="back" href="${editing ? `#book/${book.id}` : "#"}">‹ Cancel</a>
+    <form class="book-form" data-type="${type}" data-id="${editing ? book.id : ""}">
+      <h1>${editing ? "Edit book" : "Log a book"}</h1>
+      <label>Title <input name="title" required autocomplete="off" value="${editing ? esc(book.title) : ""}"></label>
+      <label>Author <input name="author" required autocomplete="off" value="${editing ? esc(book.author) : ""}"></label>
       <div class="choice">
-        <label><input type="radio" name="type" value="fiction" checked> Fiction</label>
-        <label><input type="radio" name="type" value="nonfiction"> Non-fiction</label>
+        <label><input type="radio" name="type" value="fiction" ${type === "fiction" ? "checked" : ""}> Fiction</label>
+        <label><input type="radio" name="type" value="nonfiction" ${type === "nonfiction" ? "checked" : ""}> Non-fiction</label>
       </div>
-      <label>Year read <input name="year" type="number" inputmode="numeric" value="${new Date().getFullYear()}" required></label>
+      <label>Year read <input name="year" type="number" inputmode="numeric" value="${editing ? book.year : new Date().getFullYear()}" required></label>
       <fieldset>
         <legend>Ratings <span class="hint">optional · tap again to clear</span></legend>
         ${groups.join("")}
       </fieldset>
-      <label>Review <span class="hint">optional</span> <textarea name="review" rows="6"></textarea></label>
-      <button class="save" type="submit">Save book</button>
+      <label>Review <span class="hint">optional</span> <textarea name="review" rows="6">${editing ? esc(book.review) : ""}</textarea></label>
+      <button class="save" type="submit">${editing ? "Save changes" : "Save book"}</button>
+      ${editing ? `<button class="delete" type="button" data-delete="${book.id}">Delete book</button>` : ""}
     </form>`;
 }
 
 // Five tappable icons for one category. The chosen score is kept in data-value.
-function rateInput(category) {
+function rateInput(category, score) {
   let buttons = "";
   for (let i = 1; i <= 5; i++) {
     buttons += `<button type="button" data-rate="${category}" data-score="${i}" aria-label="${category} ${i} out of 5">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[category]}</svg>
+      <svg class="icon ${score >= i ? "on" : ""}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[category]}</svg>
     </button>`;
   }
   return `
     <div class="rating-row">
       <span class="label">${category}</span>
-      <span class="icons" data-category="${category}" data-value="">${buttons}</span>
+      <span class="icons" data-category="${category}" data-value="${score || ""}">${buttons}</span>
     </div>`;
 }
 
 async function handleSave(event) {
   event.preventDefault(); // stops the browser's default for forms, which is to reload the page
   const form = event.target;
+  const existing = books.find((b) => b.id === form.dataset.id); // undefined when adding a new book
   const type = form.elements.type.value;
   const year = Number(form.elements.year.value);
 
@@ -266,26 +301,43 @@ async function handleSave(event) {
     if (value) ratings[category] = value;
   }
 
-  // The new book goes after every other book already logged for that year.
-  const positions = books.filter((b) => b.year === year).map((b) => b.position);
+  // A book keeps its place unless it's new or moved to a different year;
+  // then it goes after every other book already logged for that year.
+  const keepsPlace = existing && existing.year === year;
+  const positions = books.filter((b) => b.year === year && b !== existing).map((b) => b.position);
 
   const book = {
-    id: newId(),
+    // "..." copies everything from the old version first (such as the cover), then the lines below overwrite it.
+    ...(existing || { id: newId(), coverUrl: null, coverPhoto: null }),
     title: form.elements.title.value.trim(),
     author: form.elements.author.value.trim(),
     type,
     year,
-    position: Math.max(0, ...positions) + 1,
+    position: keepsPlace ? existing.position : Math.max(0, ...positions) + 1,
     ratings,
     review: form.elements.review.value.trim(),
-    coverUrl: null,
-    coverPhoto: null,
   };
 
   await saveBook(book);
-  books.push(book);
-  homeScroll = 0;
-  location.replace("#"); // back to home, replacing the form in history so "back" doesn't reopen it
+  books = books.filter((b) => b.id !== book.id).concat(book);
+
+  if (existing) {
+    // Back to the book's page. If that's where we came from, step back so "back" doesn't reopen the form.
+    if (previousHash === `#book/${book.id}`) history.back();
+    else location.replace(`#book/${book.id}`);
+  } else {
+    homeScroll = 0;
+    location.replace("#"); // back to home, replacing the form in history
+  }
+}
+
+async function handleDelete(id) {
+  const book = books.find((b) => b.id === id);
+  // confirm() shows the phone's own "OK / Cancel" pop-up, a safety net against accidental taps.
+  if (!confirm(`Delete “${book.title}”? This can’t be undone.`)) return;
+  await deleteBook(id);
+  books = books.filter((b) => b.id !== id);
+  location.replace("#");
 }
 
 // ---------- Small pieces used by several screens ----------
