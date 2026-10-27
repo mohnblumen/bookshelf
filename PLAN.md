@@ -5,7 +5,7 @@ A simple, good-looking reading log. Like logging a film on Letterboxd: add a boo
 ## What the app does
 
 **Home screen**
-- Books grouped by year, in reading order.
+- Books grouped by year, most recently read at the top.
 - Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half dot, e.g. ●●●◐○). Unrated books show no dots.
 - A switch at the top: **All · Fiction · Non-fiction**.
 - A "＋ Log a book" button.
@@ -79,5 +79,4 @@ Stored in the browser (IndexedDB) on the device. `books.json` holds the 12 books
 
 ## Open questions
 
-- Newest or oldest first within a year? (The notes list is oldest first.)
 - Are the category names final? They're easy to change in one place.

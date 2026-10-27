@@ -9,6 +9,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - **Don't build anything without a specific instruction.** Plan first, then build when asked.
 - Prefer the simplest thing that works. Avoid frameworks, build tools and new installs unless there's a clear reason, and explain the reason.
 - There's no GitHub account yet. Git is local only.
+- **Claude manages Git:** commit tested chunks of work without asking, and say briefly what was committed. Commits go on `main` until GitHub exists. After that, use branches and PRs.
 - Main device: **iPhone**. Development happens on a Mac.
 
 ## Decisions so far (and why)
@@ -41,5 +42,8 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 
 - Planning is complete.
 - Phase 0 is done: Command Line Tools installed (Git 2.50, Python 3.9), repo created on branch `main`, first commit saved.
-- Phase 1 has started. A read-only prototype (`index.html`, `app.js`, `style.css`) shows the home list, the fiction/non-fiction switch and the book screen, reading straight from `books.json`. Run it with `python3 -m http.server 8000`.
-- Next in Phase 1: adding, editing and rating books, saving to IndexedDB, and export/import. Wait for the go-ahead before building.
+- Phase 1 is in progress. Run the app with `python3 -m http.server 8000`.
+  - Done: the home list (newest first), the fiction/non-fiction switch, the book screen, and the "Log a book" form with tappable rating icons.
+  - Books are saved in IndexedDB. On the first visit, the app copies `books.json` in. After that, the database is the real record, and each browser/address has its own copy.
+- Next in Phase 1: edit and delete (also how the 12 imported books get rated), then export/import a backup. Wait for the go-ahead before building.
+- When testing, use port 8001 so the test data stays apart from the owner's real data on 8000. Delete the test database afterwards.

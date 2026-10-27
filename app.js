@@ -1,7 +1,9 @@
-// Bookshelf prototype.
-// Reads books.json and shows two screens:
-//   Home  (address ends in #)         – books grouped by year
-//   Book  (address ends in #book/id)  – one book's ratings and review
+// Bookshelf app.
+// Three screens, chosen by the end of the web address:
+//   Home  (#)          – books grouped by year, newest first
+//   Book  (#book/id)   – one book's ratings and review
+//   Add   (#add)       – the form for logging a new book
+// Books are saved in the browser's database (IndexedDB). books.json is only the starting list.
 
 // ---------- Settings ----------
 
@@ -22,23 +24,65 @@ const ICONS = {
 
 // ---------- State (what the app currently knows) ----------
 
+let db; // the open database
 let books = [];
 let filter = "all"; // "all", "fiction" or "nonfiction"
 let homeScroll = 0; // remembers how far down the home list you were
+
+// ---------- Saving (IndexedDB) ----------
+// The browser's built-in database. Books saved here are still there after you close the page.
+// Its commands report back later rather than straight away, so each one is wrapped in a Promise
+// (a "result coming soon"), which lets the rest of the code simply `await` it.
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("bookshelf", 1);
+    // Runs only the very first time: creates a "books" store where each book is found by its id.
+    request.onupgradeneeded = () => request.result.createObjectStore("books", { keyPath: "id" });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function loadAllBooks() {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("books").objectStore("books").getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function saveBook(book) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("books", "readwrite");
+    transaction.objectStore("books").put(book);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
 
 // ---------- Starting up ----------
 
 async function start() {
   try {
-    const response = await fetch("books.json");
-    books = await response.json();
+    db = await openDatabase();
+    books = await loadAllBooks();
+    if (books.length === 0) {
+      // First visit: copy the starting list from books.json into the database.
+      const response = await fetch("books.json");
+      books = await response.json();
+      for (const book of books) await saveBook(book);
+    }
   } catch (error) {
     document.getElementById("app").innerHTML =
-      '<p class="empty">Couldn’t load books.json. Open the app through localhost, not by double-clicking the file.</p>';
+      '<p class="empty">Couldn’t load your books. Open the app through localhost, not by double-clicking the file.</p>';
     return;
   }
+  const app = document.getElementById("app");
   window.addEventListener("hashchange", render);
-  document.getElementById("app").addEventListener("click", handleClick);
+  app.addEventListener("click", handleClick);
+  app.addEventListener("change", handleChange);
+  app.addEventListener("submit", handleSave);
   render();
 }
 
@@ -47,7 +91,10 @@ function render() {
   const app = document.getElementById("app");
   const match = location.hash.match(/^#book\/(.+)$/);
 
-  if (match) {
+  if (location.hash === "#add") {
+    app.innerHTML = addScreen();
+    window.scrollTo(0, 0);
+  } else if (match) {
     const book = books.find((b) => b.id === match[1]);
     app.innerHTML = book ? bookScreen(book) : '<p class="empty">Book not found. <a href="#">Back</a></p>';
     window.scrollTo(0, 0);
@@ -66,6 +113,22 @@ function handleClick(event) {
   if (event.target.closest(".book-row")) {
     homeScroll = window.scrollY;
   }
+  const rate = event.target.closest("[data-rate]");
+  if (rate) {
+    const icons = rate.parentElement;
+    const score = Number(rate.dataset.score);
+    // Tapping the score that's already chosen clears it.
+    icons.dataset.value = Number(icons.dataset.value) === score ? "" : score;
+    const value = Number(icons.dataset.value);
+    icons.querySelectorAll("svg").forEach((svg, i) => svg.classList.toggle("on", i < value));
+  }
+}
+
+// Switching Fiction/Non-fiction on the form swaps which rating categories are shown (see style.css).
+function handleChange(event) {
+  if (event.target.name === "type") {
+    event.target.form.dataset.type = event.target.value;
+  }
 }
 
 // ---------- Home screen ----------
@@ -77,7 +140,7 @@ function homeScreen() {
   const sections = years.map((year) => {
     const yearBooks = shown
       .filter((b) => b.year === year)
-      .sort((a, b) => a.position - b.position); // reading order within the year
+      .sort((a, b) => b.position - a.position); // most recently read first
     return `
       <section>
         <h2 class="year">${year} <span class="count">${yearBooks.length}</span></h2>
@@ -87,7 +150,10 @@ function homeScreen() {
 
   return `
     <header class="top">
-      <h1>Bookshelf</h1>
+      <div class="top-row">
+        <h1>Bookshelf</h1>
+        <a class="add-button" href="#add">＋ Log a book</a>
+      </div>
       ${filterTabs()}
     </header>
     ${sections.join("") || '<p class="empty">No books here yet.</p>'}`;
@@ -143,7 +209,86 @@ function ratingRow(category, score) {
     </div>`;
 }
 
-// ---------- Small pieces used by both screens ----------
+// ---------- Add screen ----------
+
+function addScreen() {
+  // Both sets of categories are drawn; the stylesheet shows only the one matching the chosen type.
+  const groups = Object.entries(CATEGORIES).map(([type, categories]) => `
+    <div class="rate-group" data-for="${type}">
+      ${categories.map(rateInput).join("")}
+    </div>`);
+
+  return `
+    <a class="back" href="#">‹ Cancel</a>
+    <form class="add-form" data-type="fiction">
+      <h1>Log a book</h1>
+      <label>Title <input name="title" required autocomplete="off"></label>
+      <label>Author <input name="author" required autocomplete="off"></label>
+      <div class="choice">
+        <label><input type="radio" name="type" value="fiction" checked> Fiction</label>
+        <label><input type="radio" name="type" value="nonfiction"> Non-fiction</label>
+      </div>
+      <label>Year read <input name="year" type="number" inputmode="numeric" value="${new Date().getFullYear()}" required></label>
+      <fieldset>
+        <legend>Ratings <span class="hint">optional · tap again to clear</span></legend>
+        ${groups.join("")}
+      </fieldset>
+      <label>Review <span class="hint">optional</span> <textarea name="review" rows="6"></textarea></label>
+      <button class="save" type="submit">Save book</button>
+    </form>`;
+}
+
+// Five tappable icons for one category. The chosen score is kept in data-value.
+function rateInput(category) {
+  let buttons = "";
+  for (let i = 1; i <= 5; i++) {
+    buttons += `<button type="button" data-rate="${category}" data-score="${i}" aria-label="${category} ${i} out of 5">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[category]}</svg>
+    </button>`;
+  }
+  return `
+    <div class="rating-row">
+      <span class="label">${category}</span>
+      <span class="icons" data-category="${category}" data-value="">${buttons}</span>
+    </div>`;
+}
+
+async function handleSave(event) {
+  event.preventDefault(); // stops the browser's default for forms, which is to reload the page
+  const form = event.target;
+  const type = form.elements.type.value;
+  const year = Number(form.elements.year.value);
+
+  // Only keep the categories that were actually scored, for the chosen type.
+  const ratings = {};
+  for (const category of CATEGORIES[type]) {
+    const value = Number(form.querySelector(`[data-category="${category}"]`).dataset.value);
+    if (value) ratings[category] = value;
+  }
+
+  // The new book goes after every other book already logged for that year.
+  const positions = books.filter((b) => b.year === year).map((b) => b.position);
+
+  const book = {
+    id: newId(),
+    title: form.elements.title.value.trim(),
+    author: form.elements.author.value.trim(),
+    type,
+    year,
+    position: Math.max(0, ...positions) + 1,
+    ratings,
+    review: form.elements.review.value.trim(),
+    coverUrl: null,
+    coverPhoto: null,
+  };
+
+  await saveBook(book);
+  books.push(book);
+  homeScroll = 0;
+  location.replace("#"); // back to home, replacing the form in history so "back" doesn't reopen it
+}
+
+// ---------- Small pieces used by several screens ----------
 
 // The overall score is worked out from the categories, never stored.
 function average(book) {
@@ -177,6 +322,11 @@ function hue(text) {
   let n = 0;
   for (const c of text) n = (n * 31 + c.charCodeAt(0)) % 360;
   return n;
+}
+
+// A random label like "mf3k9x2a7q" so every book can be told apart.
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
 // Makes text safe to put inside HTML, so a title like "<b>" shows as text instead of becoming code.
