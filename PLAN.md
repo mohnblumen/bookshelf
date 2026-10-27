@@ -8,7 +8,10 @@ Related docs: `docs/OPEN_LIBRARY.md` (how book details are looked up) · `docs/I
 
 **Home screen**
 - The title "Mohnblume's Bookshelf" and a round **+** button to log a book.
-- Two design tabs: **v1 · List** (small covers in rows) and **v2 · Cards** (big covers in a 2-across grid; 3 across on wider screens). The app remembers your choice (in `localStorage`).
+- Three design tabs. The app remembers your choice (in `localStorage`).
+  - **v1 · List:** small covers in rows.
+  - **v2 · Cards:** big covers in a 2-across grid (3 across on wider screens).
+  - **v3 · Mosaic:** covers only, sized by rating on a 4-column grid that tessellates: small 1×1 (unrated or under 3.5), medium 2×2 (3.5–4.4), large 3×3 (4.5+). The order is roughly reading order, since "dense" packing lets small tiles fill gaps.
 - A switch: **All · Fiction · Non-fiction**.
 - Books grouped by year, most recently read at the top.
 - Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half, e.g. ●●●◐○). Unrated books show no dots.

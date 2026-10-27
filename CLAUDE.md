@@ -52,7 +52,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
   - Book lookups key off `olKey`: `undefined` means look it up in the background. The automatic lookup uses a precise title+author search. Picking "most editions" was tested and was worse (it chose study guides and the wrong Harry Potter).
   - The cover picker also pulls editions from the top 3 general-search matches, because the precise match is sometimes an empty duplicate record (Lord of the Rings, The Sailor…).
   - The app handles being open in two tabs: an old tab closes its database and reloads when a newer version needs it.
-- **Two home layouts, switched with tabs on the page:** v1 · List (the original) and v2 · Cards (a big-cover grid, an experiment). Keep both working; the owner wants to compare them in the app, not in Git. The Git tag `v1` marks the snapshot before v2 began.
+- **Three home layouts, switched with tabs on the page:** v1 · List (the original), v2 · Cards (a big-cover grid) and v3 · Mosaic (tile size follows the rating; see `tileSize()`). v2 and v3 are experiments. Keep both working; the owner wants to compare them in the app, not in Git. The Git tag `v1` marks the snapshot before v2 began.
 - **Design: Paper was chosen**, and it's what `style.css` already uses. Keep new screens in this style. The other options remain in `design-options.html` for reference. The spine shelf was set aside for now (the owner's call); it's still in `design-options.html` if wanted later.
 - Ideas (recommendations, partner sharing, feature list) are in `docs/IDEAS.md`. The Open Library guide is in `docs/OPEN_LIBRARY.md`.
 - Python's server lets browsers cache old files. After code changes, hard-refresh (Cmd+Shift+R).

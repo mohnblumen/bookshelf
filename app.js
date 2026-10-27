@@ -32,7 +32,7 @@ let db; // the open database
 let books = [];
 let wantList = []; // books you'd like to read: just { id, title, author, added }
 let filter = "all"; // "all", "fiction" or "nonfiction"
-let view = loadView(); // "list" (v1) or "cards" (v2)
+let view = loadView(); // "list" (v1), "cards" (v2) or "mosaic" (v3)
 let lastExport = null; // when a backup was last exported (a timestamp), or null if never
 let homeScroll = 0; // remembers how far down the home list you were
 let currentHash = ""; // the screen being shown…
@@ -311,7 +311,7 @@ function handleClick(event) {
     saveView(view);
     refresh();
   }
-  if (event.target.closest(".book-row, .book-card, .want-read")) {
+  if (event.target.closest(".book-row, .book-card, .tile, .want-read")) {
     homeScroll = window.scrollY;
   }
   const rate = event.target.closest("[data-rate]");
@@ -376,9 +376,10 @@ function homeScreen() {
     const yearBooks = shown
       .filter((b) => b.year === year)
       .sort((a, b) => b.position - a.position); // most recently read first
-    const list = view === "cards"
-      ? `<ol class="book-grid">${yearBooks.map(bookCard).join("")}</ol>`
-      : `<ol class="book-list">${yearBooks.map(bookRow).join("")}</ol>`;
+    let list;
+    if (view === "cards") list = `<ol class="book-grid">${yearBooks.map(bookCard).join("")}</ol>`;
+    else if (view === "mosaic") list = `<ol class="book-mosaic">${yearBooks.map(bookTile).join("")}</ol>`;
+    else list = `<ol class="book-list">${yearBooks.map(bookRow).join("")}</ol>`;
     return `
       <section>
         <h2 class="year">${year} <span class="count">${yearBooks.length}</span></h2>
@@ -408,9 +409,9 @@ function filterTabs() {
   return `<nav class="tabs">${buttons.join("")}</nav>`;
 }
 
-// Two tabs that switch between the list design (v1) and the card design (v2).
+// Tabs that switch between the home designs: list (v1), cards (v2) and mosaic (v3).
 function viewTabs() {
-  const options = [["list", "v1 · List"], ["cards", "v2 · Cards"]];
+  const options = [["list", "v1 · List"], ["cards", "v2 · Cards"], ["mosaic", "v3 · Mosaic"]];
   const buttons = options.map(([value, label]) =>
     `<button data-view="${value}" class="${view === value ? "active" : ""}">${label}</button>`
   );
@@ -421,7 +422,8 @@ function viewTabs() {
 // it can be unavailable (e.g. some private-browsing modes), so it's wrapped in try/catch.
 function loadView() {
   try {
-    return localStorage.getItem("view") === "cards" ? "cards" : "list";
+    const saved = localStorage.getItem("view");
+    return ["cards", "mosaic"].includes(saved) ? saved : "list";
   } catch (error) {
     return "list";
   }
@@ -445,6 +447,22 @@ function bookCard(book) {
         <p class="author">${esc(book.author)}</p>
         ${dots(book)}
       </a>
+    </li>`;
+}
+
+// v3: better books get bigger tiles. Sizes snap to whole grid cells so they always fit together:
+//   1 = small (1×1): unrated or under 3.5 · 2 = medium (2×2): 3.5–4.4 · 3 = large (3×3): 4.5 and up
+function tileSize(book) {
+  const avg = average(book);
+  if (avg === null || avg < 3.5) return 1;
+  if (avg < 4.5) return 2;
+  return 3;
+}
+
+function bookTile(book) {
+  return `
+    <li class="tile size-${tileSize(book)}">
+      <a href="#book/${book.id}" aria-label="${esc(book.title)}">${cover(book, "tile")}</a>
     </li>`;
 }
 
@@ -852,7 +870,9 @@ function cover(book, size) {
   let src = book.coverPhoto || book.coverUrl;
   if (src && size !== "small" && !book.coverPhoto) src = src.replace("-M.jpg", "-L.jpg"); // sharper for the big ones
   if (src) return `<img class="cover ${size}" src="${esc(src)}" loading="lazy" alt="" style="--hue: ${hue(book.title)}">`;
-  return `<div class="cover ${size} placeholder" style="--hue: ${hue(book.title)}">${esc(book.title[0])}</div>`;
+  // Mosaic tiles have no text underneath, so their placeholder shows the whole title, not just the first letter.
+  const label = size === "tile" ? book.title : book.title[0];
+  return `<div class="cover ${size} placeholder" style="--hue: ${hue(book.title)}">${esc(label)}</div>`;
 }
 
 // Turns a title into a number from 0–359, so each book always gets the same colour.

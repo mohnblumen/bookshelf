@@ -717,3 +717,62 @@ img.cover.card {
 .book-card .dots {
   margin-top: 5px;
 }
+
+/* ---------- Mosaic view (v3): bigger tiles for better books ---------- */
+
+/* A grid of 4 columns. Each row is 1.5× as tall as a column is wide, so a tile of any size
+   (1×1, 2×2, 3×3) keeps a book's 2:3 shape.
+   Column width = (page width − 32px side padding − 3 gaps of 6px) ÷ 4, and the page is at most 560px wide.
+   "dense" lets the browser slot small tiles into gaps left by big ones, so everything tessellates. */
+.book-mosaic {
+  --column: calc((min(100vw, 560px) - 32px - 18px) / 4);
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: calc(var(--column) * 1.5);
+  grid-auto-flow: dense;
+  gap: 6px;
+  margin: 14px 0 32px;
+}
+
+.tile.size-2 {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.tile.size-3 {
+  grid-column: span 3;
+  grid-row: span 3;
+}
+
+.tile a {
+  display: block;
+  height: 100%;
+}
+
+.cover.tile {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+/* A placeholder tile shows the whole title, sized to suit the tile. */
+.cover.tile.placeholder {
+  display: flex;
+  padding: 6px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.size-2 .cover.tile.placeholder {
+  font-size: 17px;
+  padding: 12px;
+}
+
+.size-3 .cover.tile.placeholder {
+  font-size: 24px;
+  padding: 18px;
+}
