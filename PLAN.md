@@ -12,9 +12,10 @@ Related docs: `docs/OPEN_LIBRARY.md` (how book details are looked up) · `docs/I
 - Books grouped by year, most recently read at the top.
 - Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half, e.g. ●●●◐○). Unrated books show no dots.
 - At the very bottom: a small **Want to read** list. Type "Title by Author" to add, tap **Read** to log one (the form opens filled in), and × to remove.
+- Below that: a quiet **Backup** link showing when you last exported.
 
 **Book screen** (tap a book)
-- Large cover, title, author, fiction or non-fiction.
+- Large cover with a **Change cover** link, then title, author, fiction or non-fiction.
 - **Published** (looked up from Open Library) and **Read** (the year you read it), side by side.
 - A rating for each category, shown as five single-colour line icons.
 - The review.
@@ -24,6 +25,14 @@ Related docs: `docs/OPEN_LIBRARY.md` (how book details are looked up) · `docs/I
 - Title, author, fiction or non-fiction, year read, and published (leave it blank and it's looked up automatically).
 - Category ratings: optional; tap an icon again to clear it.
 - Review: optional.
+
+**Covers**
+- Looked up automatically from Open Library in the background.
+- **Change cover** opens a picker with covers from the book's editions (English first). You can also take or choose a photo (shrunk to at most 600px tall), or remove the cover.
+
+**Backup** (`#backup`)
+- **Export** downloads everything as `mohnblumes-bookshelf-YYYY-MM-DD.json`.
+- **Import** checks the file is really a backup, asks to confirm, then replaces everything.
 
 ## Rating categories
 
@@ -54,14 +63,17 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
   "year": 2026,
   "position": 1,
   "published": 1977,
+  "olKey": "/works/OL2431270W",
   "ratings": { "characters": 4, "plot": 3 },
   "review": "…",
-  "coverUrl": null,
+  "coverUrl": "https://covers.openlibrary.org/b/id/8523846-M.jpg",
   "coverPhoto": null
 }
 ```
 
 - `published`: a number = known; `null` = Open Library doesn't know it; missing = not looked up yet.
+- `olKey`: the book's Open Library record. Missing = not looked up yet (the app looks it up in the background); `null` = not found.
+- `coverPhoto`: your own photo as a data URL (the image written out as text). It wins over `coverUrl`.
 - `ratings`: only the categories actually scored. `{}` = unrated.
 
 ## Tech choices
@@ -74,15 +86,9 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
 ## Roadmap
 
 - [x] **Phase 0, setup:** Command Line Tools, Git.
-- [ ] **Phase 1, the core**
-  - [x] Home list, filter, book screen
-  - [x] Log, edit and delete; category ratings
-  - [x] Publication year from Open Library
-  - [x] Want to read list
-  - [x] 2025 list imported
-  - [ ] Backup: export/import a file
+- [x] **Phase 1, the core:** home list, filter, book screen; log, edit, delete; ratings; publication years; Want to read; 2025 list; backup.
 - [x] **Phase 2, design:** chose **Paper** from `design-options.html` (warm off-white, Iowan Old Style + system sans; nothing extra to load). It's already applied.
-- [ ] **Phase 3, covers:** Open Library search showing a few editions to pick from, plus taking a photo.
+- [x] **Phase 3, covers:** automatic covers from Open Library, an editions picker, and your own photo.
 - [ ] **Phase 4, iPhone:** first over home Wi-Fi, then online (needs a GitHub account) and added to the home screen.
 - [ ] **Phase 5, sync and sharing:** a cloud database (Supabase), so phone and laptop share one list and your partner can see your shelf. See `docs/IDEAS.md`.
 

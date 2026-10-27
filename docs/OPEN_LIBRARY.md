@@ -74,17 +74,26 @@ This finds *Het Diner*, the Dutch original of *The Dinner*.
 
 It's in `app.js`, in the section headed **Open Library**.
 
-1. When a book has no **Published** year, `lookUpPublished()` searches by title and author.
-2. If that finds nothing, it tries the looser `q=` search.
-3. It saves `first_publish_year` into the book's `published` field.
+**Automatic lookup** (`searchOpenLibrary()` and `fillInDetails()`)
 
-That gives three possible answers:
+1. Any book that hasn't been looked up yet (it has no `olKey`) gets searched by title and author.
+2. If that finds nothing, the app tries the looser `q=` search.
+3. It saves three things:
+   - `key` → `olKey`: the book's Open Library record.
+   - `first_publish_year` → `published`, unless you've typed one.
+   - `cover_i` → `coverUrl`, unless you've already got a cover or photo.
+
+The search can give three kinds of answer:
 
 | Answer | Meaning | What the book page shows |
 |---|---|---|
-| a year, e.g. `1977` | found it | 1977 |
-| `null` | looked, but Open Library doesn't know this book | — |
+| a match | found it | the year and cover |
+| `null` | looked, but Open Library doesn't know this book | — and a coloured placeholder |
 | `undefined` | couldn't ask (no internet?) | … (it tries again next time the app opens) |
+
+**The cover picker** (`findEditionCovers()`)
+
+"Change cover" lists covers from every edition of the book, English editions first. Open Library sometimes has duplicate, nearly empty records for the same book. So the picker also pulls editions from the top three matches of a general search. That's how *The Fellowship of the Ring* goes from no covers to more than 70. It asks for all of these at once (`Promise.allSettled`), so it takes about a second.
 
 This runs in the background, so the app never waits for it. Your browser is allowed to ask Open Library directly because Open Library says "any website may ask me". That permission is called **CORS**, and some APIs don't give it.
 

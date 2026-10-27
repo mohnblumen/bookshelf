@@ -6,6 +6,7 @@
 //   Add   (#add/want/id)    – the same, filled in from a Want to read item
 //   Edit  (#edit/id)        – the same form, filled in, plus Delete
 //   Backup (#backup)        – export everything to a file, or import a file back
+//   Cover (#cover/id)       – pick a cover from the book's editions, or use your own photo
 // Everything is saved in the browser's database (IndexedDB). books.json is only the starting list.
 
 // ---------- Settings ----------
@@ -123,21 +124,20 @@ function remove(store, id) {
 // ---------- Open Library (book details from the internet) ----------
 // A free book database: no account or key needed. See docs/OPEN_LIBRARY.md.
 
-// Finds the year a book was first published. Gives back:
-//   a year (e.g. 1977)  – found it
-//   null                – looked, but Open Library doesn't know this book
-//   undefined           – couldn't ask (no internet?), so try again another time
-async function lookUpPublished(title, author) {
+// Searches Open Library for a book. Gives back:
+//   { key, first_publish_year, cover_i }  – the best match (key is its "work" address, e.g. /works/OL2431270W)
+//   null                                  – looked, but Open Library doesn't know this book
+//   undefined                             – couldn't ask (no internet?), so try again another time
+async function searchOpenLibrary(title, author) {
   // A precise search first (title + author). If that finds nothing, a looser general search,
   // which catches books listed under another title, like The Dinner (Het Diner).
   const searches = [{ title, author }, { q: `${title} ${author}` }];
   for (const search of searches) {
-    const params = new URLSearchParams({ ...search, limit: 1, fields: "first_publish_year" });
+    const params = new URLSearchParams({ ...search, limit: 1, fields: "key,first_publish_year,cover_i" });
     try {
       const response = await fetch(`https://openlibrary.org/search.json?${params}`);
       const data = await response.json();
-      const year = data.docs[0]?.first_publish_year;
-      if (year) return year;
+      if (data.docs[0]) return data.docs[0];
     } catch (error) {
       return undefined;
     }
@@ -145,16 +145,59 @@ async function lookUpPublished(title, author) {
   return null;
 }
 
-// Fills in the publication year for any book that hasn't been looked up yet, one at a time.
-async function fillInPublished() {
-  const missing = books.filter((b) => b.published === undefined);
+// The web address of a cover image. Sizes: "S", "M" or "L".
+function coverAddress(coverId, size = "M") {
+  return `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg`;
+}
+
+// Looks up any book that hasn't been looked up yet (no olKey), one at a time, and fills in
+// its publication year and a cover. Anything you've set yourself is never overwritten.
+async function fillInDetails() {
+  const missing = books.filter((b) => b.olKey === undefined);
   for (const book of missing) {
-    const year = await lookUpPublished(book.title, book.author);
-    if (year === undefined) return; // no internet: stop, and try again next time the app opens
-    book.published = year;
+    const match = await searchOpenLibrary(book.title, book.author);
+    if (match === undefined) return; // no internet: stop, and try again next time the app opens
+    book.olKey = match?.key ?? null;
+    if (book.published === undefined) book.published = match?.first_publish_year ?? null;
+    if (!book.coverUrl && !book.coverPhoto && match?.cover_i) book.coverUrl = coverAddress(match.cover_i);
     await save("books", book);
   }
   if (missing.length > 0) refresh();
+}
+
+// Covers from every edition of a book, English editions first, for the cover picker.
+// Open Library sometimes has duplicate records for one book (and the one the app found can be
+// an empty one), so this gathers editions from the book's own record AND the top few matches
+// of a general search. You pick by eye, so a few extra options don't hurt.
+async function findEditionCovers(book) {
+  const params = new URLSearchParams({ q: `${book.title} ${book.author}`, limit: 3, fields: "key" });
+  const search = await (await fetch(`https://openlibrary.org/search.json?${params}`)).json();
+  const keys = [...new Set([book.olKey, ...search.docs.map((d) => d.key)].filter(Boolean))];
+
+  // Promise.allSettled asks for all the records at the same time, instead of one after another,
+  // and carries on with whichever answered, so one hiccup doesn't lose all the covers.
+  const results = await Promise.allSettled(
+    keys.map((key) => fetch(`https://openlibrary.org${key}/editions.json?limit=50`).then((r) => r.json()))
+  );
+  if (results.every((r) => r.status === "rejected")) throw new Error("Open Library didn't answer");
+
+  const seen = new Set();
+  const covers = [];
+  for (const result of results.filter((r) => r.status === "fulfilled")) {
+    for (const edition of result.value.entries) {
+      const coverId = edition.covers?.find((c) => c > 0); // -1 means "no cover"
+      if (!coverId || seen.has(coverId)) continue;
+      seen.add(coverId);
+      // Show the edition's title only if it's different, e.g. a translation or a box set.
+      const otherTitle = edition.title && edition.title.toLowerCase() !== book.title.toLowerCase() ? edition.title : "";
+      covers.push({
+        coverId,
+        caption: [otherTitle, edition.publishers?.[0], edition.publish_date].filter(Boolean).join(", "),
+        english: edition.languages?.some((l) => l.key === "/languages/eng") ?? false,
+      });
+    }
+  }
+  return covers.sort((a, b) => b.english - a.english);
 }
 
 // ---------- Starting up ----------
@@ -177,7 +220,7 @@ async function start() {
   app.addEventListener("change", handleChange);
   app.addEventListener("submit", handleSubmit);
   render();
-  fillInPublished(); // runs in the background; no `await`, so the app doesn't wait for it
+  fillInDetails(); // runs in the background; no `await`, so the app doesn't wait for it
 }
 
 // books.json is the starter list, and it can grow (like when the 2025 list was added).
@@ -210,9 +253,9 @@ function render() {
 }
 
 // Redraws the current screen in place after a background update, keeping the scroll position.
-// Forms are left alone so nothing you're typing gets wiped.
+// Forms, and screens with a file picker, are left alone so nothing you're typing or choosing gets wiped.
 function refresh() {
-  if (location.hash.startsWith("#add") || location.hash.startsWith("#edit/")) return;
+  if (/^#(add|edit\/|cover\/)/.test(location.hash)) return;
   const scroll = window.scrollY;
   draw();
   window.scrollTo(0, scroll);
@@ -223,6 +266,7 @@ function draw() {
   const app = document.getElementById("app");
   const bookMatch = location.hash.match(/^#book\/(.+)$/);
   const editMatch = location.hash.match(/^#edit\/(.+)$/);
+  const coverMatch = location.hash.match(/^#cover\/(.+)$/);
   const wantMatch = location.hash.match(/^#add\/want\/(.+)$/);
 
   if (location.hash === "#add") {
@@ -235,13 +279,18 @@ function draw() {
     const item = wantList.find((w) => w.id === wantMatch[1]);
     app.innerHTML = bookForm(null, item);
     window.scrollTo(0, 0);
-  } else if (bookMatch || editMatch) {
-    const book = books.find((b) => b.id === (bookMatch || editMatch)[1]);
+  } else if (bookMatch || editMatch || coverMatch) {
+    const book = books.find((b) => b.id === (bookMatch || editMatch || coverMatch)[1]);
     if (!book) {
       location.replace("#"); // e.g. going "back" to a book that's just been deleted
       return;
     }
-    app.innerHTML = bookMatch ? bookScreen(book) : bookForm(book);
+    if (bookMatch) app.innerHTML = bookScreen(book);
+    else if (editMatch) app.innerHTML = bookForm(book);
+    else {
+      app.innerHTML = coverScreen(book);
+      showEditionCovers(book);
+    }
     window.scrollTo(0, 0);
   } else {
     app.innerHTML = homeScreen();
@@ -278,6 +327,13 @@ function handleClick(event) {
   if (event.target.closest("[data-export]")) {
     exportBackup();
   }
+  const pick = event.target.closest("[data-pick-cover]");
+  if (pick) {
+    setCover({ coverUrl: coverAddress(pick.dataset.pickCover), coverPhoto: null });
+  }
+  if (event.target.closest("[data-clear-cover]")) {
+    setCover({ coverUrl: null, coverPhoto: null });
+  }
 }
 
 function handleChange(event) {
@@ -289,6 +345,10 @@ function handleChange(event) {
   if (event.target.name === "import-file" && event.target.files[0]) {
     importBackup(event.target.files[0]);
     event.target.value = ""; // so picking the same file again still counts as a change
+  }
+  // A photo was taken or chosen on the cover screen.
+  if (event.target.name === "cover-photo" && event.target.files[0]) {
+    useCoverPhoto(event.target.files[0]);
   }
 }
 
@@ -477,6 +537,80 @@ async function importBackup(file) {
   status().textContent = `Done: ${books.length} books and ${wantList.length} want to read restored.`;
 }
 
+// ---------- Cover screen ----------
+
+function coverScreen(book) {
+  return `
+    <a class="back" href="#book/${book.id}">‹ Back</a>
+    <div class="cover-picker">
+      <h1>Choose a cover</h1>
+      <p class="hint">${esc(book.title)} · ${esc(book.author)}</p>
+      <label class="import-button">Take or choose a photo<input type="file" name="cover-photo" accept="image/*"></label>
+      ${book.coverUrl || book.coverPhoto ? '<button class="delete" type="button" data-clear-cover>Remove cover</button>' : ""}
+      <h2>Editions</h2>
+      <div class="cover-grid"><p class="hint">Finding editions…</p></div>
+    </div>`;
+}
+
+// Fills the grid once Open Library answers (the screen is drawn first, so it doesn't feel stuck).
+async function showEditionCovers(book) {
+  let covers;
+  try {
+    covers = await findEditionCovers(book);
+  } catch (error) {
+    covers = null;
+  }
+  const grid = document.querySelector(".cover-grid");
+  if (!grid || location.hash !== `#cover/${book.id}`) return; // you've moved on to another screen
+  if (covers === null) {
+    grid.innerHTML = '<p class="hint">Couldn’t reach Open Library. Check your internet and try again.</p>';
+  } else if (covers.length === 0) {
+    grid.innerHTML = '<p class="hint">No covers found for this book. Try a photo instead.</p>';
+  } else {
+    grid.innerHTML = covers.map((c) => `
+      <button type="button" data-pick-cover="${c.coverId}">
+        <img src="${coverAddress(c.coverId)}" loading="lazy" alt="">
+        <span>${esc(c.caption)}</span>
+      </button>`).join("");
+  }
+}
+
+// Saves a new cover for the book on screen, then goes back to its page.
+async function setCover(changes) {
+  const book = books.find((b) => b.id === location.hash.split("/")[1]);
+  Object.assign(book, changes); // copies the changed fields onto the book
+  await save("books", book);
+  returnToBook(book.id);
+}
+
+async function useCoverPhoto(file) {
+  try {
+    setCover({ coverPhoto: await shrinkPhoto(file) });
+  } catch (error) {
+    document.querySelector(".cover-picker .hint").textContent = "That photo couldn’t be read. Try another.";
+  }
+}
+
+// Phone photos are huge (often 3MB+). This redraws the photo at most 600px tall on an invisible
+// <canvas> and saves it as a small JPEG, usually around 50–100KB. The result is a "data URL":
+// the whole image written out as text, so it fits in the database and in backup files.
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, 600 / image.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(image.src);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    image.onerror = reject;
+    image.src = URL.createObjectURL(file);
+  });
+}
+
 // ---------- Book screen ----------
 
 function bookScreen(book) {
@@ -490,6 +624,7 @@ function bookScreen(book) {
     </div>
     <article class="book">
       ${cover(book, "large")}
+      <a class="change-cover" href="#cover/${book.id}">Change cover</a>
       <h1>${esc(book.title)}</h1>
       <p class="author">${esc(book.author)}</p>
       <p class="meta">${book.type === "fiction" ? "Fiction" : "Non-fiction"}</p>
@@ -588,16 +723,21 @@ async function handleSave(form) {
   // then it goes after every other book already logged for that year.
   const keepsPlace = existing && existing.year === year;
   const positions = books.filter((b) => b.year === year && b !== existing).map((b) => b.position);
+  const title = form.elements.title.value.trim();
+  const author = form.elements.author.value.trim();
+  // Look the book up (again) on Open Library if it's new, renamed, or its Published box was left blank.
+  const needsLookup = !existing || existing.title !== title || existing.author !== author || !publishedText;
 
   const book = {
     // "..." copies everything from the old version first (such as the cover), then the lines below overwrite it.
     ...(existing || { id: newId(), coverUrl: null, coverPhoto: null }),
-    title: form.elements.title.value.trim(),
-    author: form.elements.author.value.trim(),
+    title,
+    author,
     type,
     year,
     position: keepsPlace ? existing.position : Math.max(0, ...positions) + 1,
     published: publishedText ? Number(publishedText) : undefined, // blank = look it up
+    olKey: needsLookup ? undefined : existing.olKey,
     ratings,
     review: form.elements.review.value.trim(),
   };
@@ -609,14 +749,18 @@ async function handleSave(form) {
   if (form.dataset.want) await handleRemoveWant(form.dataset.want);
 
   if (existing) {
-    // Back to the book's page. If that's where we came from, step back so "back" doesn't reopen the form.
-    if (previousHash === `#book/${book.id}`) history.back();
-    else location.replace(`#book/${book.id}`);
+    returnToBook(book.id);
   } else {
     homeScroll = 0;
     location.replace("#"); // back to home, replacing the form in history
   }
-  fillInPublished(); // looks up the year in the background if it was left blank
+  fillInDetails(); // looks up the year and cover in the background, if needed
+}
+
+// Back to a book's page. If that's where we came from, step back so "back" doesn't reopen the form or picker.
+function returnToBook(id) {
+  if (previousHash === `#book/${id}`) history.back();
+  else location.replace(`#book/${id}`);
 }
 
 async function handleDelete(id) {
@@ -650,10 +794,13 @@ function dots(book) {
   return `<div class="dots" aria-label="${rounded} out of 5">${html}</div>`;
 }
 
-// Uses the real cover if there is one, otherwise a soft coloured block with the first letter.
+// Your photo if there is one, then the Open Library cover, otherwise a soft coloured block with the first letter.
+// The book's colour sits behind the image too, so there's no blank gap while it loads.
+// loading="lazy" means images further down the list only load as you scroll to them.
 function cover(book, size) {
-  const src = book.coverPhoto || book.coverUrl;
-  if (src) return `<img class="cover ${size}" src="${esc(src)}" alt="">`;
+  let src = book.coverPhoto || book.coverUrl;
+  if (src && size === "large" && !book.coverPhoto) src = src.replace("-M.jpg", "-L.jpg"); // sharper for the big one
+  if (src) return `<img class="cover ${size}" src="${esc(src)}" loading="lazy" alt="" style="--hue: ${hue(book.title)}">`;
   return `<div class="cover ${size} placeholder" style="--hue: ${hue(book.title)}">${esc(book.title[0])}</div>`;
 }
 

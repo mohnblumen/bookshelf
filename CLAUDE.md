@@ -47,7 +47,11 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
   - Done: renamed to "Mohnblume's Bookshelf"; Published (Open Library) vs Read years; Want to read list at the bottom; 2025 list (52 books) added to `books.json`.
   - IndexedDB v2 has three stores: `books`, `wantToRead` and `meta`. `meta.starterIds` records which `books.json` books have been copied in, so new starter books get added once and deleted ones stay deleted.
   - Open Library years are often wrong for classics and translations. Known corrections are in `books.json`; a year the owner types is never overwritten.
-- Next in Phase 1: export/import a backup. Wait for the go-ahead before building.
+  - Done: backup (export/import, replace with confirmation) and covers (automatic lookup, an editions picker, own photo).
+  - Phases 1–3 are complete. Next is Phase 4 (on the iPhone, then online). Wait for the go-ahead before building.
+  - Book lookups key off `olKey`: `undefined` means look it up in the background. The automatic lookup uses a precise title+author search. Picking "most editions" was tested and was worse (it chose study guides and the wrong Harry Potter).
+  - The cover picker also pulls editions from the top 3 general-search matches, because the precise match is sometimes an empty duplicate record (Lord of the Rings, The Sailor…).
+  - The app handles being open in two tabs: an old tab closes its database and reloads when a newer version needs it.
 - **Design: Paper was chosen**, and it's what `style.css` already uses. Keep new screens in this style. The other options remain in `design-options.html` for reference. The spine shelf was set aside for now (the owner's call); it's still in `design-options.html` if wanted later.
 - Ideas (recommendations, partner sharing, feature list) are in `docs/IDEAS.md`. The Open Library guide is in `docs/OPEN_LIBRARY.md`.
 - Python's server lets browsers cache old files. After code changes, hard-refresh (Cmd+Shift+R).
