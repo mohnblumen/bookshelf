@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Design Options</title>
+  <!-- Fonts for the options below, from Google Fonts (free). Only the chosen ones would go in the real app. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Courier+Prime:wght@400;700&family=DM+Sans:wght@400;500&family=DM+Serif+Display&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&family=Karla:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ---------- The page itself (neutral, so the options stand out) ---------- */
+    :root {
+      --page-bg: #efede9;
+      --page-text: #222;
+      --page-muted: #6b6760;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page-bg: #1b1a19;
+        --page-text: #eee;
+        --page-muted: #9b968e;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--page-bg);
+      color: var(--page-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      padding: 32px 16px 64px;
+    }
+    .intro, .option-head { max-width: 680px; margin: 0 auto; }
+    .intro h1 { font-size: 28px; margin-bottom: 8px; }
+    .intro p, .option-head p { color: var(--page-muted); line-height: 1.5; }
+    .option { margin-top: 56px; }
+    .option-head h2 { font-size: 22px; }
+    .option-head .number { color: var(--page-muted); font-weight: 400; margin-right: 6px; }
+    .option-head .fonts { font-size: 13px; margin-top: 6px; }
+    .swatches { display: flex; gap: 6px; margin-top: 10px; }
+    .swatches span { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgb(128 128 128 / 0.3); }
+    .previews { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; margin-top: 20px; }
+
+    /* ---------- A phone-sized screen ---------- */
+    .phone {
+      width: 320px;
+      height: 620px;
+      overflow: hidden;
+      position: relative;
+      border-radius: 28px;
+      box-shadow: 0 10px 40px rgb(0 0 0 / 0.18), 0 0 0 8px #111;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+    }
+    .screen { position: relative; height: 100%; padding: 28px 16px; }
+
+    /* Shared layout (each theme below changes the look) */
+    .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .top-row h1 { font-family: var(--display); font-size: 24px; font-weight: 600; }
+    .plus {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent); color: var(--on-accent); font-size: 22px; font-weight: 300;
+    }
+    .tabs { display: flex; gap: 3px; padding: 3px; background: var(--line); border-radius: 9px; margin-bottom: 20px; }
+    .tabs span { flex: 1; text-align: center; padding: 6px 0; font-size: 12px; color: var(--muted); border-radius: 7px; }
+    .tabs .active { background: var(--bg); color: var(--text); }
+    .year { font-family: var(--display); font-size: 19px; font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+    .count { font-family: var(--body); font-size: 12px; font-weight: 400; color: var(--muted); }
+    .rows { list-style: none; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .title { font-family: var(--display); font-size: 15px; line-height: 1.25; }
+    .author { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .cover {
+      flex-shrink: 0; width: 38px; height: 57px; border-radius: var(--cover-radius);
+      display: flex; align-items: center; justify-content: center;
+      background: hsl(var(--hue) var(--cover-s) var(--cover-l));
+      color: hsl(var(--hue) var(--cover-s) var(--cover-text-l));
+      font-family: var(--display); font-size: 17px;
+    }
+    .dots { display: flex; gap: 3px; margin-top: 5px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--dot); }
+    .dot.full { background: var(--dot); }
+    .dot.half { background: linear-gradient(90deg, var(--dot) 50%, transparent 50%); }
+
+    .bar { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+    .bar b { color: var(--text); font-weight: 500; }
+    .detail { text-align: center; }
+    .cover.large { width: 110px; height: 165px; margin: 0 auto 16px; font-size: 44px; box-shadow: 0 6px 18px rgb(0 0 0 / 0.15); }
+    .detail h1 { font-family: var(--display); font-size: 22px; font-weight: 600; }
+    .detail .author { font-size: 14px; }
+    .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .facts { display: flex; justify-content: center; gap: 32px; margin-top: 10px; }
+    .facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .facts dd { font-family: var(--display); font-size: 17px; }
+    .ratings { margin: 16px 0; border-top: 1px solid var(--line); text-align: left; }
+    .rating { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .rating .label { text-transform: capitalize; }
+    .icons { display: flex; gap: 4px; color: var(--icon); }
+    .icon { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; opacity: 0.2; }
+    .icon.on { opacity: 1; }
+    .review { font-family: var(--display); font-size: 14px; line-height: 1.55; text-align: left; }
+    .sample { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font: 10px -apple-system, sans-serif; color: var(--muted); opacity: 0.8; }
+
+    /* ---------- 1. Paper (what the app uses now) ---------- */
+    .t-paper {
+      --bg: #faf8f4; --text: #1f1d1a; --muted: #8a847b; --line: #e8e3da;
+      --accent: #1f1d1a; --on-accent: #faf8f4; --dot: #1f1d1a; --icon: #1f1d1a;
+      --display: "Iowan Old Style", Palatino, Georgia, serif;
+      --body: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      --cover-s: 22%; --cover-l: 80%; --cover-text-l: 30%; --cover-radius: 3px;
+    }
+
+    /* ---------- 2. Editorial ---------- */
+    .t-editorial {
+      --bg: #ffffff; --text: #111; --muted: #8c8c8c; --line: #e6e6e6;
+      --accent: #111; --on-accent: #fff; --dot: #d6342b; --icon: #111;
+      --display: "Fraunces", Georgia, serif;
+      --body: "Inter", -apple-system, sans-serif;
+      --cover-s: 0%; --cover-l: 88%; --cover-text-l: 25%; --cover-radius: 0;
+    }
+    .t-editorial .top-row h1 { font-size: 27px; letter-spacing: -0.02em; line-height: 1.05; }
+    .t-editorial .plus { border-radius: 0; }
+    .t-editorial .tabs { background: none; padding: 0; gap: 18px; border-bottom: 1px solid var(--line); border-radius: 0; }
+    .t-editorial .tabs span { flex: none; padding: 6px 0; border-radius: 0; }
+    .t-editorial .tabs .active { background: none; box-shadow: inset 0 -2px 0 var(--text); font-weight: 600; }
+    .t-editorial .year { font-size: 40px; font-weight: 400; letter-spacing: -0.03em; border-bottom: 2px solid var(--text); }
+    .t-editorial .title { font-weight: 600; }
+
+    /* ---------- 3. Library card ---------- */
+    .t-card {
+      --bg: #f3ecd9; --text: #2b2a26; --muted: #7b725f; --line: #b9cde0;
+      --accent: #c0392b; --on-accent: #fff; --dot: #2b2a26; --icon: #c0392b;
+      --display: "Courier Prime", "Courier New", monospace;
+      --body: "Courier Prime", "Courier New", monospace;
+      --cover-s: 30%; --cover-l: 72%; --cover-text-l: 28%; --cover-radius: 2px;
+    }
+    /* The red margin line of an index card. */
+    .t-card .screen { background: linear-gradient(90deg, transparent 22px, rgb(192 57 43 / 0.45) 22px 23px, transparent 23px); }
+    .t-card .top-row h1 { font-weight: 700; font-size: 21px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .t-card .plus { border-radius: 4px; }
+    .t-card .tabs { background: none; border: 1px solid var(--text); border-radius: 0; padding: 0; gap: 0; }
+    .t-card .tabs span { border-radius: 0; }
+    .t-card .tabs .active { background: var(--text); color: var(--bg); }
+    .t-card .year { font-weight: 700; border-bottom: 2px solid var(--accent); }
+    .t-card .rating .label { text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+
+    /* ---------- 4. Night reading ---------- */
+    .t-night {
+      --bg: #13201b; --text: #ece3cf; --muted: #93a093; --line: #26372f;
+      --accent: #d6b77a; --on-accent: #13201b; --dot: #d6b77a; --icon: #d6b77a;
+      --display: "Cormorant Garamond", Georgia, serif;
+      --body: "Karla", -apple-system, sans-serif;
+      --cover-s: 25%; --cover-l: 32%; --cover-text-l: 78%; --cover-radius: 3px;
+    }
+    .t-night .top-row h1 { font-size: 28px; font-style: italic; font-weight: 500; }
+    .t-night .year { font-size: 24px; color: var(--accent); }
+    .t-night .title { font-size: 18px; font-weight: 500; }
+    .t-night .review { font-size: 16px; }
+
+    /* ---------- 5. Soft modern ---------- */
+    .t-soft {
+      --bg: #f6f1ee; --text: #2d2a32; --muted: #8b8492; --line: #ebe3de;
+      --accent: #e8a4a0; --on-accent: #2d2a32; --dot: #c9706a; --icon: #8a9f84;
+      --display: "DM Serif Display", Georgia, serif;
+      --body: "DM Sans", -apple-system, sans-serif;
+      --cover-s: 45%; --cover-l: 84%; --cover-text-l: 35%; --cover-radius: 8px;
+    }
+    .t-soft .top-row h1 { font-weight: 400; font-size: 25px; }
+    .t-soft .tabs { background: #fff; border-radius: 999px; }
+    .t-soft .tabs span { border-radius: 999px; }
+    .t-soft .tabs .active { background: var(--accent); color: var(--on-accent); }
+    .t-soft .year { font-weight: 400; border: 0; }
+    .t-soft .rows { display: grid; gap: 8px; margin-top: 8px; }
+    .t-soft .row { background: #fff; border: 0; border-radius: 14px; padding: 8px; box-shadow: 0 2px 8px rgb(80 50 60 / 0.06); }
+    .t-soft .detail h1 { font-weight: 400; }
+    .t-soft .ratings { background: #fff; border-radius: 14px; border: 0; padding: 4px 12px; }
+    .t-soft .rating:last-child { border: 0; }
+
+    /* ---------- Bonus: the spine shelf ---------- */
+    /* Each shelf row is exactly 100px tall; the stripe repeats every 100px to draw a wooden plank under each row. */
+    .shelf {
+      display: flex; flex-wrap: wrap; align-content: flex-start; padding: 0 10px;
+      background: repeating-linear-gradient(to bottom, transparent 0 92px, #8b6a4a 92px 98px, #6f523a 98px 100px);
+    }
+    .slot { height: 100px; display: flex; align-items: flex-end; padding-bottom: 8px; }
+    .spine {
+      border-radius: 2px 2px 0 0; margin-right: 1px;
+      background: hsl(var(--hue) 32% var(--l));
+      box-shadow: inset -2px 0 0 rgb(0 0 0 / 0.12), inset 2px 0 0 rgb(255 255 255 / 0.15);
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      font: 600 7px var(--display); color: rgb(0 0 0 / 0.55);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 4px 0; text-align: left;
+    }
+    .t-shelf .shelf { position: absolute; inset: 0; padding-top: 12px; }
+    .t-shelf .over { position: relative; }
+    .t-shelf .faded .shelf { opacity: 0.35; }
+    .t-shelf .faded .top-row, .t-shelf .faded .tabs, .t-shelf .faded .year, .t-shelf .faded .row {
+      background: rgb(250 248 244 / 0.82); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    }
+    .t-shelf .faded .top-row { padding: 6px 8px; border-radius: 10px; }
+    .t-shelf .faded .row { padding-left: 8px; padding-right: 8px; }
+    .t-shelf .faded .year { padding: 4px 8px; }
+    .shelf-label {
+      position: absolute; left: 12px; right: 12px; bottom: 14px; text-align: center;
+      background: rgb(250 248 244 / 0.9); border-radius: 10px; padding: 8px; font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header class="intro">
+    <h1>Design options</h1>
+    <p>Five directions for Mohnblume’s Bookshelf, each shown as the home screen and a book page, using your real 2026 books. The ratings shown are samples, just to show how the dots and icons look. At the end there’s a bonus: the spine shelf experiment, built from every book you’ve logged.</p>
+  </header>
+  <main id="options"></main>
+
+  <script>
+    // Your books (falls back to a few titles if books.json can't be read).
+    const FALLBACK = [
+      { title: "Yesteryear", author: "Caro Claire Burke", year: 2026, position: 12 },
+      { title: "Flesh", author: "David Szalay", year: 2026, position: 11 },
+      { title: "Joe Cinque’s Consolation", author: "Helen Garner", year: 2026, position: 10 },
+      { title: "Pride and Prejudice", author: "Jane Austen", year: 2026, position: 9 },
+      { title: "All That Man Is", author: "David Szalay", year: 2026, position: 8 },
+    ];
+
+    const OPTIONS = [
+      { id: "paper", name: "Paper", fonts: "Iowan Old Style + system sans (built into iPhone, nothing to load)",
+        about: "What the app looks like now. Warm off-white, quiet and bookish.",
+        swatches: ["#faf8f4", "#e8e3da", "#8a847b", "#1f1d1a"] },
+      { id: "editorial", name: "Editorial", fonts: "Fraunces + Inter",
+        about: "Like a literary magazine. Crisp white, black type, huge year numbers, red rating dots, black-and-white covers until real ones arrive.",
+        swatches: ["#ffffff", "#e6e6e6", "#d6342b", "#111111"] },
+      { id: "card", name: "Library card", fonts: "Courier Prime (typewriter)",
+        about: "An old library index card: manila paper, blue ruled lines, a red margin line and typewriter text.",
+        swatches: ["#f3ecd9", "#b9cde0", "#c0392b", "#2b2a26"] },
+      { id: "night", name: "Night reading", fonts: "Cormorant Garamond + Karla",
+        about: "Dark forest green with warm gold, like reading by lamplight. Easy on the eyes in bed.",
+        swatches: ["#13201b", "#26372f", "#d6b77a", "#ece3cf"] },
+      { id: "soft", name: "Soft modern", fonts: "DM Serif Display + DM Sans",
+        about: "Gentle and friendly. Each book sits on a rounded white card, with blush and sage accents.",
+        swatches: ["#f6f1ee", "#ffffff", "#e8a4a0", "#8a9f84"] },
+    ];
+
+    // Lucide icons (lucide.dev, ISC licence) for the sample book page.
+    const ICONS = {
+      characters: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      plot: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+      style: '<path d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/>',
+    };
+    const SAMPLE_DOTS = [4, 3.5, 4.5, 3, 4]; // sample averages for the home rows
+    const SAMPLE_RATINGS = { characters: 4, plot: 3, style: 5 };
+
+    function hue(text) {
+      let n = 0;
+      for (const c of text) n = (n * 31 + c.charCodeAt(0)) % 360;
+      return n;
+    }
+
+    function esc(text) {
+      const r = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+      return String(text).replace(/[&<>"']/g, (c) => r[c]);
+    }
+
+    function dots(score) {
+      let html = "";
+      for (let i = 1; i <= 5; i++) {
+        html += `<span class="dot ${score >= i ? "full" : score >= i - 0.5 ? "half" : ""}"></span>`;
+      }
+      return `<div class="dots">${html}</div>`;
+    }
+
+    function cover(title, extra = "") {
+      return `<div class="cover ${extra}" style="--hue:${hue(title)}">${esc(title[0])}</div>`;
+    }
+
+    function homeScreen(recent, count) {
+      const rows = recent.map((b, i) => `
+        <li class="row">
+          ${cover(b.title)}
+          <div><p class="title">${esc(b.title)}</p><p class="author">${esc(b.author)}</p>${dots(SAMPLE_DOTS[i])}</div>
+        </li>`).join("");
+      return `
+        <div class="top-row"><h1>Mohnblume’s Bookshelf</h1><span class="plus">+</span></div>
+        <div class="tabs"><span class="active">All</span><span>Fiction</span><span>Non-fiction</span></div>
+        <h2 class="year">2026 <span class="count">${count}</span></h2>
+        <ul class="rows">${rows}</ul>`;
+    }
+
+    function bookScreen(book) {
+      const rows = Object.entries(SAMPLE_RATINGS).map(([cat, score]) => {
+        let icons = "";
+        for (let i = 1; i <= 5; i++) icons += `<svg class="icon ${score >= i ? "on" : ""}" viewBox="0 0 24 24">${ICONS[cat]}</svg>`;
+        return `<div class="rating"><span class="label">${cat}</span><span class="icons">${icons}</span></div>`;
+      }).join("");
+      const review = book.review ? book.review.split(". ").slice(0, 2).join(". ") + "." : "";
+      return `
+        <div class="bar"><span>‹ Back</span><b>Edit</b></div>
+        <div class="detail">
+          ${cover(book.title, "large")}
+          <h1>${esc(book.title)}</h1>
+          <p class="author">${esc(book.author)}</p>
+          <p class="meta">Fiction</p>
+          <dl class="facts"><div><dt>Published</dt><dd>${book.published || 1977}</dd></div><div><dt>Read</dt><dd>${book.year}</dd></div></dl>
+          <div class="ratings">${rows}</div>
+          <p class="review">${esc(review)}</p>
+        </div>`;
+    }
+
+    // One spine per book. Width comes from the title length, height and shade from the title's "hue" number.
+    function shelf(all) {
+      const spines = all.map((b) => {
+        const h = hue(b.title);
+        const width = 12 + (b.title.length % 8) * 2;
+        const height = 62 + (h % 23);
+        const light = 48 + (h % 5) * 6;
+        return `<div class="slot"><div class="spine" style="--hue:${h};--l:${light}%;width:${width}px;height:${height}px">${esc(b.title)}</div></div>`;
+      }).join("");
+      return `<div class="shelf">${spines}</div>`;
+    }
+
+    async function start() {
+      let books = FALLBACK;
+      try {
+        books = await (await fetch("books.json")).json();
+      } catch (e) {}
+
+      const year2026 = books.filter((b) => b.year === 2026).sort((a, b) => b.position - a.position);
+      const recent = year2026.slice(0, 5);
+      const featured = books.find((b) => b.title === "Monkey Grip") || recent[0];
+      const shelfOrder = [...books].sort((a, b) => a.year - b.year || a.position - b.position);
+
+      const html = OPTIONS.map((o, i) => `
+        <section class="option">
+          <div class="option-head">
+            <h2><span class="number">${i + 1}.</span>${o.name}</h2>
+            <p>${o.about}</p>
+            <p class="fonts">Fonts: ${o.fonts}</p>
+            <div class="swatches">${o.swatches.map((c) => `<span style="background:${c}"></span>`).join("")}</div>
+          </div>
+          <div class="previews t-${o.id}">
+            <div class="phone"><div class="screen">${homeScreen(recent, year2026.length)}<p class="sample">Sample ratings</p></div></div>
+            <div class="phone"><div class="screen">${bookScreen(featured)}</div></div>
+          </div>
+        </section>`).join("");
+
+      const bonus = `
+        <section class="option">
+          <div class="option-head">
+            <h2><span class="number">Bonus.</span>The spine shelf</h2>
+            <p>Every book you’ve logged (${books.length} so far), drawn as a spine on a wooden shelf: oldest top left, newest bottom right. Each book’s colour is the same one its placeholder cover uses. On the left it sits faded behind the home list; on the right it’s shown on its own, as it could look as a separate “shelf view” in the app. It grows with every book you log. Shown in the Paper style, but it would work with any option.</p>
+          </div>
+          <div class="previews t-paper t-shelf">
+            <div class="phone"><div class="screen faded">${shelf(shelfOrder)}<div class="over">${homeScreen(recent, year2026.length)}</div></div></div>
+            <div class="phone"><div class="screen">${shelf(shelfOrder)}<p class="shelf-label">${books.length} books · 2025–2026</p></div></div>
+          </div>
+        </section>`;
+
+      document.getElementById("options").innerHTML = html + bonus;
+    }
+
+    start();
+  </script>
+</body>
+</html>
