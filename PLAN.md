@@ -1,43 +1,49 @@
-# Bookshelf — Plan
+# Mohnblume's Bookshelf — Plan
 
-A simple, good-looking reading log. Like logging a film on Letterboxd: add a book when you finish it, rate it, and see the year's books in the order you read them.
+A simple, good-looking reading log. Like logging a film on Letterboxd: add a book when you finish it, rate it, and see each year's books in the order you read them.
+
+Related docs: `docs/OPEN_LIBRARY.md` (how book details are looked up) · `docs/IDEAS.md` (recommendations, partner sharing, future features) · `design-options.html` (five visual directions + spine shelf).
 
 ## What the app does
 
 **Home screen**
+- The title "Mohnblume's Bookshelf" and a round **+** button to log a book.
+- A switch: **All · Fiction · Non-fiction**.
 - Books grouped by year, most recently read at the top.
-- Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half dot, e.g. ●●●◐○). Unrated books show no dots.
-- A switch at the top: **All · Fiction · Non-fiction**.
-- A "＋ Log a book" button.
+- Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half, e.g. ●●●◐○). Unrated books show no dots.
+- At the very bottom: a small **Want to read** list. Type "Title by Author" to add, tap **Read** to log one (the form opens filled in), and × to remove.
 
-**Book screen** (tap a book to open it)
-- Large cover, title and author.
-- A rating for each category, shown as five single-colour line icons (filled = score).
-- The review/note.
-- Edit, delete or change the cover.
-- The web address changes (e.g. `#book/3`) so the iPhone back gesture works.
+**Book screen** (tap a book)
+- Large cover, title, author, fiction or non-fiction.
+- **Published** (looked up from Open Library) and **Read** (the year you read it), side by side.
+- A rating for each category, shown as five single-colour line icons.
+- The review.
+- **Edit** at the top right, with **Delete** at the bottom of the edit form (it asks first).
 
-**Logging a book**
-- Title, author, fiction or non-fiction. The year and reading position are filled in automatically.
-- Category ratings: optional, any of them can be skipped.
-- Review: optional, with room for a full paragraph.
-- Cover: search Open Library and pick one of a few results, or take a photo. A photo always wins.
+**Logging or editing a book**
+- Title, author, fiction or non-fiction, year read, and published (leave it blank and it's looked up automatically).
+- Category ratings: optional; tap an icon again to clear it.
+- Review: optional.
 
 ## Rating categories
 
 Each category is scored out of 5. The overall score is **calculated** from whichever categories were scored, and is never stored.
 
-| Fiction | Icon idea | Non-fiction | Icon idea |
+| Fiction | Icon | Non-fiction | Icon |
 |---|---|---|---|
 | Characters | person | Prose | pen nib |
 | Plot | winding path | Insight | lightbulb |
 | Style | feather pen | Storytelling | open book |
 
-Icons: the [Lucide](https://lucide.dev) open-source set, copied into the project, in one colour to match the design.
+## Data
 
-## Data shape
+Saved in the browser's IndexedDB (database version 2), which has three stores:
 
-Stored in the browser (IndexedDB) on the device. `books.json` holds the 12 books imported from the 2026 notes list.
+- `books`: logged books.
+- `wantToRead`: `{ id, title, author, added }`.
+- `meta`: the app's own notes, e.g. which starter books have already been copied in.
+
+`books.json` is the starter list: 2026 (12 books) and 2025 (52 books). Any starter book a browser hasn't seen is copied in once. Deleted books stay deleted.
 
 ```json
 {
@@ -47,6 +53,7 @@ Stored in the browser (IndexedDB) on the device. `books.json` holds the 12 books
   "type": "fiction",
   "year": 2026,
   "position": 1,
+  "published": 1977,
   "ratings": { "characters": 4, "plot": 3 },
   "review": "…",
   "coverUrl": null,
@@ -54,29 +61,34 @@ Stored in the browser (IndexedDB) on the device. `books.json` holds the 12 books
 }
 ```
 
-- `type`: `"fiction"` or `"nonfiction"`.
-- `position`: hidden reading order within the year. No dates are stored.
+- `published`: a number = known; `null` = Open Library doesn't know it; missing = not looked up yet.
 - `ratings`: only the categories actually scored. `{}` = unrated.
-- `coverPhoto` is used instead of `coverUrl` when it's set.
 
 ## Tech choices
 
-- Plain **HTML, CSS and JavaScript**: no framework and no build tools.
-- **Git** for snapshots (on the laptop; GitHub not needed yet).
-- **Python's built-in server** to run it on `localhost`.
-- **Open Library** for cover lookup (free, no account needed).
-- Photos are shrunk before saving so storage doesn't fill up.
+- Plain **HTML, CSS and JavaScript**: no framework, no build tools.
+- **Git** for snapshots (local; GitHub later).
+- **Python's built-in server** for `localhost`.
+- **Open Library** for publication years, and covers later (free, no account).
 
 ## Roadmap
 
-- [x] **Phase 0, setup:** Command Line Tools, Terminal basics, Git and the first snapshot.
-- [ ] **Phase 1, the core:** home and book screens; add, edit and delete; the fiction/non-fiction switch; import `books.json`; export/import a backup.
-- [ ] **Phase 2, design session:** compare a few visual directions (simple and clear), pick fonts, colours and icons.
-- [ ] **Phase 3, covers:** Open Library search with a choice of results, plus taking a photo.
-- [ ] **Phase 4, iPhone:** first over home Wi-Fi, then online (Netlify/Cloudflare Pages; needs a GitHub account) and added to the home screen.
+- [x] **Phase 0, setup:** Command Line Tools, Git.
+- [ ] **Phase 1, the core**
+  - [x] Home list, filter, book screen
+  - [x] Log, edit and delete; category ratings
+  - [x] Publication year from Open Library
+  - [x] Want to read list
+  - [x] 2025 list imported
+  - [ ] Backup: export/import a file
+- [ ] **Phase 2, design:** pick a direction from `design-options.html`, then apply it.
+- [ ] **Phase 3, covers:** Open Library search showing a few editions to pick from, plus taking a photo.
+- [ ] **Phase 4, iPhone:** first over home Wi-Fi, then online (needs a GitHub account) and added to the home screen.
+- [ ] **Phase 5, sync and sharing:** a cloud database (Supabase), so phone and laptop share one list and your partner can see your shelf. See `docs/IDEAS.md`.
 
-**Later ideas:** sync between phone and laptop (e.g. Supabase), drag to reorder, genre tags.
+**Later:** recommendations, year in review, shelf view, search and more. See `docs/IDEAS.md`.
 
 ## Open questions
 
-- Are the category names final? They're easy to change in one place.
+- Which design direction (or mix)?
+- Is the spine shelf a background, its own screen, or just for fun?

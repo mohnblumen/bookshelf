@@ -43,8 +43,12 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - Planning is complete.
 - Phase 0 is done: Command Line Tools installed (Git 2.50, Python 3.9), repo created on branch `main`, first commit saved.
 - Phase 1 is in progress. Run the app with `python3 -m http.server 8000`.
-  - Done: the home list (newest first), the fiction/non-fiction switch, the book screen, the "Log a book" form with tappable rating icons, and edit/delete. The same form is used for adding and editing; delete asks to confirm first.
-  - Books are saved in IndexedDB. On the first visit, the app copies `books.json` in. After that, the database is the real record, and each browser/address has its own copy.
+  - Done: the home list (newest first), the fiction/non-fiction switch, the book screen, the log form (round + button) with tappable rating icons, and edit/delete. The same form is used for adding and editing; delete asks to confirm first.
+  - Done: renamed to "Mohnblume's Bookshelf"; Published (Open Library) vs Read years; Want to read list at the bottom; 2025 list (52 books) added to `books.json`.
+  - IndexedDB v2 has three stores: `books`, `wantToRead` and `meta`. `meta.starterIds` records which `books.json` books have been copied in, so new starter books get added once and deleted ones stay deleted.
+  - Open Library years are often wrong for classics and translations. Known corrections are in `books.json`; a year the owner types is never overwritten.
 - Next in Phase 1: export/import a backup. Wait for the go-ahead before building.
+- Design options are in `design-options.html` (Paper, Editorial, Library card, Night reading, Soft modern, plus a spine-shelf bonus). The owner hasn't chosen yet.
+- Ideas (recommendations, partner sharing, feature list) are in `docs/IDEAS.md`. The Open Library guide is in `docs/OPEN_LIBRARY.md`.
 - Python's server lets browsers cache old files. After code changes, hard-refresh (Cmd+Shift+R).
 - When testing, use port 8001 so the test data stays apart from the owner's real data on 8000. Delete the test database afterwards.
