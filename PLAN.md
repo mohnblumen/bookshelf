@@ -81,7 +81,7 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
   - [x] Want to read list
   - [x] 2025 list imported
   - [ ] Backup: export/import a file
-- [ ] **Phase 2, design:** pick a direction from `design-options.html`, then apply it.
+- [x] **Phase 2, design:** chose **Paper** from `design-options.html` (warm off-white, Iowan Old Style + system sans; nothing extra to load). It's already applied.
 - [ ] **Phase 3, covers:** Open Library search showing a few editions to pick from, plus taking a photo.
 - [ ] **Phase 4, iPhone:** first over home Wi-Fi, then online (needs a GitHub account) and added to the home screen.
 - [ ] **Phase 5, sync and sharing:** a cloud database (Supabase), so phone and laptop share one list and your partner can see your shelf. See `docs/IDEAS.md`.
@@ -90,5 +90,4 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
 
 ## Open questions
 
-- Which design direction (or mix)?
 - Is the spine shelf a background, its own screen, or just for fun?

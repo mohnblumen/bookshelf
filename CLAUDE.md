@@ -48,7 +48,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
   - IndexedDB v2 has three stores: `books`, `wantToRead` and `meta`. `meta.starterIds` records which `books.json` books have been copied in, so new starter books get added once and deleted ones stay deleted.
   - Open Library years are often wrong for classics and translations. Known corrections are in `books.json`; a year the owner types is never overwritten.
 - Next in Phase 1: export/import a backup. Wait for the go-ahead before building.
-- Design options are in `design-options.html` (Paper, Editorial, Library card, Night reading, Soft modern, plus a spine-shelf bonus). The owner hasn't chosen yet.
+- **Design: Paper was chosen**, and it's what `style.css` already uses. Keep new screens in this style. The other options remain in `design-options.html` for reference. The spine shelf is still undecided (its own screen, a background, or skip).
 - Ideas (recommendations, partner sharing, feature list) are in `docs/IDEAS.md`. The Open Library guide is in `docs/OPEN_LIBRARY.md`.
 - Python's server lets browsers cache old files. After code changes, hard-refresh (Cmd+Shift+R).
 - When testing, use port 8001 so the test data stays apart from the owner's real data on 8000. Delete the test database afterwards.
