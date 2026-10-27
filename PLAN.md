@@ -88,6 +88,3 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
 
 **Later:** recommendations, year in review, shelf view, search and more. See `docs/IDEAS.md`.
 
-## Open questions
-
-- Is the spine shelf a background, its own screen, or just for fun?
