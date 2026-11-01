@@ -7,7 +7,9 @@
 //   Edit  (#edit/id)        – the same form, filled in, plus Delete
 //   Backup (#backup)        – export everything to a file, or import a file back
 //   Cover (#cover/id)       – pick a cover from the book's editions, or use your own photo
-// Everything is saved in the browser's database (IndexedDB). books.json is only the starting list.
+//   Unlock (#unlock)        – type the passphrase so this device can make changes
+// Everything is saved in a Supabase database (see supabase/setup.sql). Anyone can view the shelf;
+// only a device that knows the passphrase can change it.
 
 // ---------- Settings ----------
 
@@ -15,6 +17,11 @@ const CATEGORIES = {
   fiction: ["characters", "plot", "style"],
   nonfiction: ["prose", "insight", "storytelling"],
 };
+
+// Where the database lives. The publishable key is meant to be public: on its own it can only
+// read books. Every change needs the passphrase as well (the database checks it).
+const SUPABASE_URL = "https://yooxqwqqfvyvcaqwsmpb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_78pyFH7rTLmQOmdNt9HhDw_EUNPgGy2";
 
 // Line icons from Lucide (lucide.dev, ISC licence). Each is the inside of a 24×24 SVG.
 const ICONS = {
@@ -28,98 +35,119 @@ const ICONS = {
 
 // ---------- State (what the app currently knows) ----------
 
-let db; // the open database
 let books = [];
 let wantList = []; // books you'd like to read: just { id, title, author, added }
+let passphrase = null; // set on a device that's been unlocked; null means view-only
 let filter = "all"; // "all", "fiction" or "nonfiction"
-let view = loadView(); // "list" or "mosaic"
-let lastExport = null; // when a backup was last exported (a timestamp), or null if never
+let view = readSetting("view") === "mosaic" ? "mosaic" : "list"; // "list" or "mosaic"
+let lastExport = Number(readSetting("lastExport")) || null; // when a backup was last exported, or null if never
 let homeScroll = 0; // remembers how far down the home list you were
 let currentHash = ""; // the screen being shown…
 let previousHash = ""; // …and the one before it
 
-// ---------- Saving (IndexedDB) ----------
-// The browser's built-in database. What's saved here is still there after you close the page.
-// It has separate "stores" (like drawers): "books", "wantToRead", and "meta" for the app's own notes.
-// Its commands report back later rather than straight away, so each one is wrapped in a Promise
-// (a "result coming soon"), which lets the rest of the code simply `await` it.
-
-function openDatabase() {
-  // Bumping the version number (1 → 2) tells the browser the layout changed,
-  // so it runs onupgradeneeded once to add what's missing. Saved books are untouched.
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("bookshelf", 2);
-    request.onupgradeneeded = (event) => {
-      const database = request.result;
-      if (event.oldVersion < 1) database.createObjectStore("books", { keyPath: "id" });
-      if (event.oldVersion < 2) {
-        database.createObjectStore("wantToRead", { keyPath: "id" });
-        database.createObjectStore("meta", { keyPath: "id" });
-      }
-    };
-    // Another tab still has the old version open, so the upgrade has to wait. Say so instead of showing a blank page.
-    request.onblocked = () => {
-      document.getElementById("app").innerHTML =
-        '<p class="empty">Updating… If this doesn’t finish, close any other tabs with the bookshelf open.</p>';
-    };
-    request.onsuccess = () => {
-      const database = request.result;
-      // If a newer version of the app opens in another tab, step aside: close and reload to get the new code.
-      database.onversionchange = () => {
-        database.close();
-        location.reload();
-      };
-      resolve(database);
-    };
-    request.onerror = () => reject(request.error);
-  });
+// Can this device make changes?
+function canEdit() {
+  return passphrase !== null;
 }
 
-function load(store, id) {
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(store).objectStore(store).get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+// ---------- Saving (Supabase) ----------
+// Supabase is a database on the internet. The app talks to it with ordinary web requests (fetch),
+// just like it talks to Open Library. Reading books is open to anyone; every change goes through
+// one of the database "functions" in supabase/setup.sql, which check the passphrase first.
+
+// Sends one request to the database. With no `body` it reads (GET); with a body it calls a function (POST).
+async function api(path, body) {
+  const response = await fetch(SUPABASE_URL + path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => ({}));
+    throw new Error(problem.message || `the database said no (${response.status})`);
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
-function loadAll(store) {
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(store).objectStore(store).getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+// Calls one of the passphrase-checked functions, adding this device's passphrase.
+function call(name, args) {
+  return api(`/rest/v1/rpc/${name}`, { passphrase, ...args });
 }
 
-// Adds a new item, or replaces the saved copy of an item with the same id.
-function save(store, item) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(store, "readwrite");
-    transaction.objectStore(store).put(item);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+// The database names columns like cover_url; the app's code uses coverUrl. These translate between the two.
+function fromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    type: row.type,
+    year: row.year,
+    position: row.position,
+    // A book that hasn't been looked up yet has no olKey (undefined), which tells the app to look it up.
+    published: row.published ?? (row.looked_up ? null : undefined),
+    olKey: row.looked_up ? row.ol_key : undefined,
+    ratings: row.ratings,
+    review: row.review,
+    coverUrl: row.cover_url,
+    coverPhoto: row.cover_photo,
+  };
 }
 
-// Empties a store and fills it with `items`, all in one go: if anything fails, nothing changes.
-function replaceAll(store, items) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(store, "readwrite");
-    const objectStore = transaction.objectStore(store);
-    objectStore.clear();
-    for (const item of items) objectStore.put(item);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+function toRow(book) {
+  return {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    type: book.type,
+    year: book.year,
+    position: book.position,
+    published: book.published ?? null,
+    ol_key: book.olKey ?? null,
+    looked_up: book.olKey !== undefined,
+    ratings: book.ratings,
+    review: book.review ?? "",
+    cover_url: book.coverUrl ?? null,
+    cover_photo: book.coverPhoto ?? null,
+  };
 }
 
-function remove(store, id) {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(store, "readwrite");
-    transaction.objectStore(store).delete(id);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+async function loadBooks() {
+  return (await api("/rest/v1/books?select=*")).map(fromRow);
+}
+
+function checkPassphrase(phrase) {
+  return api("/rest/v1/rpc/check_passphrase", { passphrase: phrase });
+}
+
+const saveBook = (book) => call("save_book", { book: toRow(book) });
+const deleteBook = (id) => call("delete_book", { book_id: id });
+const loadWantList = () => call("list_want_to_read", {});
+const saveWant = (item) => call("save_want_to_read", { item });
+const deleteWant = (id) => call("delete_want_to_read", { item_id: id });
+const replaceEverything = (allBooks, want) =>
+  call("replace_everything", { books: allBooks.map(toRow), want_to_read: want });
+
+// ---------- Small saved settings (localStorage) ----------
+// localStorage is the browser's simple "remember this" box, for small things on this device only:
+// the passphrase, List or Mosaic, and when you last exported. It can be unavailable
+// (e.g. some private-browsing modes), so it's wrapped in try/catch.
+
+function readSetting(name) {
+  try {
+    return localStorage.getItem(name);
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeSetting(name, value) {
+  try {
+    if (value === null) localStorage.removeItem(name);
+    else localStorage.setItem(name, value);
+  } catch (error) {
+    // Not remembered this time; nothing else to do.
+  }
 }
 
 // ---------- Open Library (book details from the internet) ----------
@@ -153,7 +181,9 @@ function coverAddress(coverId, size = "M") {
 
 // Looks up any book that hasn't been looked up yet (no olKey), one at a time, and fills in
 // its publication year and a cover. Anything you've set yourself is never overwritten.
+// Only an unlocked device does this, since it saves the results.
 async function fillInDetails() {
+  if (!canEdit()) return;
   const missing = books.filter((b) => b.olKey === undefined);
   for (const book of missing) {
     const match = await searchOpenLibrary(book.title, book.author);
@@ -161,7 +191,7 @@ async function fillInDetails() {
     book.olKey = match?.key ?? null;
     if (book.published === undefined) book.published = match?.first_publish_year ?? null;
     if (!book.coverUrl && !book.coverPhoto && match?.cover_i) book.coverUrl = coverAddress(match.cover_i);
-    await save("books", book);
+    await saveBook(book);
   }
   if (missing.length > 0) refresh();
 }
@@ -204,18 +234,21 @@ async function findEditionCovers(book) {
 // ---------- Starting up ----------
 
 async function start() {
+  const app = document.getElementById("app");
+  // Any save that fails (no internet, wrong passphrase…) shows a message instead of failing silently.
+  window.addEventListener("unhandledrejection", (event) => showProblem(event.reason));
   try {
-    db = await openDatabase();
-    books = await loadAll("books");
-    wantList = await loadAll("wantToRead");
-    lastExport = (await load("meta", "lastExport"))?.at ?? null;
-    await copyInStarterBooks();
+    // A remembered passphrase is checked again, in case it's been changed since.
+    const remembered = readSetting("passphrase");
+    if (remembered && (await checkPassphrase(remembered))) passphrase = remembered;
+    else writeSetting("passphrase", null);
+
+    books = await loadBooks();
+    if (canEdit()) wantList = await loadWantList();
   } catch (error) {
-    document.getElementById("app").innerHTML =
-      '<p class="empty">Couldn’t load your books. Open the app through localhost, not by double-clicking the file.</p>';
+    app.innerHTML = '<p class="empty">Couldn’t reach the bookshelf. Check your internet connection and try again.</p>';
     return;
   }
-  const app = document.getElementById("app");
   window.addEventListener("hashchange", render);
   app.addEventListener("click", handleClick);
   app.addEventListener("change", handleChange);
@@ -224,26 +257,13 @@ async function start() {
   fillInDetails(); // runs in the background; no `await`, so the app doesn't wait for it
 }
 
-// books.json is the starter list, and it can grow (like when the 2025 list was added).
-// This copies in any starter book this browser hasn't had before. It remembers which ones
-// it has copied, so a book you delete stays deleted instead of coming back.
-async function copyInStarterBooks() {
-  const response = await fetch("books.json");
-  const starters = await response.json();
-  const record = await load("meta", "starterIds");
-
-  let copied;
-  if (record) copied = record.ids;
-  else if (books.length === 0) copied = []; // a brand new browser: copy everything
-  else copied = starters.filter((b) => b.year === 2026).map((b) => b.id); // the 2026 list was copied before this tracking existed
-
-  for (const book of starters) {
-    if (!copied.includes(book.id)) {
-      await save("books", book);
-      books.push(book);
-    }
+function showProblem(error) {
+  if (error?.message === "Wrong passphrase") {
+    lock();
+    alert("This device’s passphrase no longer works, so it’s been locked. Unlock again to make changes.");
+    return;
   }
-  await save("meta", { id: "starterIds", ids: starters.map((b) => b.id) });
+  alert(`That didn’t save: ${error?.message || error}. Check your internet connection and try again.`);
 }
 
 // Moving to a new screen: remember where we came from, then draw it.
@@ -256,7 +276,7 @@ function render() {
 // Redraws the current screen in place after a background update, keeping the scroll position.
 // Forms, and screens with a file picker, are left alone so nothing you're typing or choosing gets wiped.
 function refresh() {
-  if (/^#(add|edit\/|cover\/)/.test(location.hash)) return;
+  if (/^#(add|edit\/|cover\/|unlock)/.test(location.hash)) return;
   const scroll = window.scrollY;
   draw();
   window.scrollTo(0, scroll);
@@ -269,8 +289,12 @@ function draw() {
   const editMatch = location.hash.match(/^#edit\/(.+)$/);
   const coverMatch = location.hash.match(/^#cover\/(.+)$/);
   const wantMatch = location.hash.match(/^#add\/want\/(.+)$/);
+  const changesThings = /^#(add|edit\/|cover\/|backup)/.test(location.hash);
 
-  if (location.hash === "#add") {
+  if (location.hash === "#unlock" || (changesThings && !canEdit())) {
+    app.innerHTML = unlockScreen();
+    window.scrollTo(0, 0);
+  } else if (location.hash === "#add") {
     app.innerHTML = bookForm(null);
     window.scrollTo(0, 0);
   } else if (location.hash === "#backup") {
@@ -308,7 +332,7 @@ function handleClick(event) {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     view = viewButton.dataset.view;
-    saveView(view);
+    writeSetting("view", view);
     refresh();
   }
   if (event.target.closest(".book-row, .tile, .want-read")) {
@@ -341,6 +365,9 @@ function handleClick(event) {
   if (event.target.closest("[data-clear-cover]")) {
     setCover({ coverUrl: null, coverPhoto: null });
   }
+  if (event.target.closest("[data-lock]")) {
+    lock();
+  }
 }
 
 function handleChange(event) {
@@ -359,10 +386,11 @@ function handleChange(event) {
   }
 }
 
-// There are two forms: the little "Want to read" box and the big book form.
+// There are three forms: the little "Want to read" box, the Unlock box, and the big book form.
 function handleSubmit(event) {
   event.preventDefault(); // stops the browser's default for forms, which is to reload the page
   if (event.target.classList.contains("want-add")) handleAddWant(event.target);
+  else if (event.target.classList.contains("unlock-form")) handleUnlock(event.target);
   else handleSave(event.target);
 }
 
@@ -386,18 +414,24 @@ function homeScreen() {
       </section>`;
   });
 
+  // Visitors see the shelf only; an unlocked device also gets the + button, Want to read and Backup.
+  const footer = canEdit()
+    ? `${wantSection()}
+       <a class="backup-link" href="#backup">Backup · ${lastExport ? "last saved " + formatDate(lastExport) : "never saved"}</a>
+       <a class="backup-link quiet" href="#unlock">This device can edit · Lock</a>`
+    : `<a class="backup-link quiet" href="#unlock">Unlock to edit</a>`;
+
   return `
     <header class="top">
       <div class="top-row">
         <h1>Mohnblume’s Bookshelf</h1>
-        <a class="add-button" href="#add" aria-label="Log a book">+</a>
+        ${canEdit() ? '<a class="add-button" href="#add" aria-label="Log a book">+</a>' : ""}
       </div>
       ${viewTabs()}
       ${filterTabs()}
     </header>
     ${sections.join("") || '<p class="empty">No books here yet.</p>'}
-    ${wantSection()}
-    <a class="backup-link" href="#backup">Backup · ${lastExport ? "last saved " + formatDate(lastExport) : "never saved"}</a>`;
+    ${footer}`;
 }
 
 function filterTabs() {
@@ -415,24 +449,6 @@ function viewTabs() {
     `<button data-view="${value}" class="${view === value ? "active" : ""}">${label}</button>`
   );
   return `<nav class="tabs view-tabs">${buttons.join("")}</nav>`;
-}
-
-// localStorage is the browser's simple "remember this setting" box. It suits small preferences;
-// it can be unavailable (e.g. some private-browsing modes), so it's wrapped in try/catch.
-function loadView() {
-  try {
-    return localStorage.getItem("view") === "mosaic" ? "mosaic" : "list"; // anything else (like the old "cards") → list
-  } catch (error) {
-    return "list";
-  }
-}
-
-function saveView(value) {
-  try {
-    localStorage.setItem("view", value);
-  } catch (error) {
-    // Not remembered this time; nothing else to do.
-  }
 }
 
 // Mosaic: better books get bigger tiles. Sizes snap to whole grid cells so they always fit together:
@@ -465,7 +481,7 @@ function bookRow(book) {
     </li>`;
 }
 
-// ---------- Want to read (bottom of the home screen) ----------
+// ---------- Want to read (bottom of the home screen, unlocked devices only) ----------
 
 function wantSection() {
   const items = [...wantList].sort((a, b) => a.added - b.added); // in the order you added them
@@ -501,20 +517,68 @@ async function handleAddWant(form) {
     author: split > 0 ? text.slice(split + 4).trim() : "",
     added: Date.now(),
   };
-  await save("wantToRead", item);
+  await saveWant(item);
   wantList.push(item);
   refresh();
   document.querySelector(".want-add input").focus(); // ready to add another
 }
 
 async function handleRemoveWant(id) {
-  await remove("wantToRead", id);
+  await deleteWant(id);
   wantList = wantList.filter((w) => w.id !== id);
   refresh();
 }
 
+// ---------- Unlock screen ----------
+// Typing the passphrase lets this device make changes. It's remembered here (in localStorage),
+// so each device only needs it once. The database checks it on every change.
+
+function unlockScreen() {
+  if (canEdit()) {
+    return `
+      <a class="back" href="#">‹ Back</a>
+      <div class="backup">
+        <h1>This device can edit</h1>
+        <p>It remembers your passphrase. Lock it if this isn’t your own device, or if you’d like the view-only version here.</p>
+        <button class="import-button" type="button" data-lock>Lock this device</button>
+      </div>`;
+  }
+  return `
+    <a class="back" href="#">‹ Back</a>
+    <form class="backup unlock-form">
+      <h1>Unlock</h1>
+      <p>Type your passphrase to log, rate and edit books on this device. It’s remembered here, so you only need to do this once.</p>
+      <input name="passphrase" type="password" autocomplete="current-password" aria-label="Passphrase" required>
+      <button class="save" type="submit">Unlock</button>
+      <p class="status" role="status"></p>
+    </form>`;
+}
+
+async function handleUnlock(form) {
+  const phrase = form.elements.passphrase.value;
+  const status = form.querySelector(".status");
+  status.textContent = "Checking…";
+  if (!(await checkPassphrase(phrase))) {
+    status.textContent = "That passphrase didn’t work. Try again.";
+    return;
+  }
+  passphrase = phrase;
+  writeSetting("passphrase", phrase);
+  wantList = await loadWantList();
+  location.replace("#");
+  fillInDetails();
+}
+
+function lock() {
+  passphrase = null;
+  writeSetting("passphrase", null);
+  wantList = [];
+  if (location.hash === "") draw();
+  else location.replace("#");
+}
+
 // ---------- Backup screen ----------
-// Your books live only in this browser, so a backup file is the safety net.
+// Your books are in the cloud now, but a backup file is still a good safety net.
 // It's plain JSON, the same format as books.json, so you can open and read it.
 
 const BACKUP_LABEL = "mohnblumes-bookshelf"; // written into every backup, so import can recognise one
@@ -524,18 +588,18 @@ function backupScreen() {
     <a class="back" href="#">‹ Back</a>
     <div class="backup">
       <h1>Backup</h1>
-      <p>Your books are saved only in this browser. Export a copy every so often and keep it somewhere safe, like iCloud Drive.</p>
+      <p>Your books are saved online, but it’s still worth exporting a copy every so often and keeping it somewhere safe, like iCloud Drive.</p>
       <button class="save" type="button" data-export>Export backup</button>
       <p class="hint">${lastExport ? "Last exported " + formatDate(lastExport) : "Never exported"} · ${books.length} books, ${wantList.length} want to read</p>
 
       <h2>Restore</h2>
-      <p>Load a backup file. This <strong>replaces</strong> everything currently in the app with what’s in the file.</p>
+      <p>Load a backup file. This <strong>replaces</strong> everything on the bookshelf, on every device, with what’s in the file.</p>
       <label class="import-button">Import backup<input type="file" name="import-file" accept=".json,application/json"></label>
       <p class="status" role="status"></p>
     </div>`;
 }
 
-async function exportBackup() {
+function exportBackup() {
   const backup = {
     app: BACKUP_LABEL,
     version: 1,
@@ -552,7 +616,7 @@ async function exportBackup() {
   URL.revokeObjectURL(link.href); // tidy up: the browser no longer needs to hold the file
 
   lastExport = Date.now();
-  await save("meta", { id: "lastExport", at: lastExport });
+  writeSetting("lastExport", String(lastExport));
   refresh();
 }
 
@@ -584,10 +648,10 @@ async function importBackup(file) {
     ` from ${formatDate(Date.parse(backup.exported))}?`;
   if (!confirm(message)) return;
 
-  await replaceAll("books", backup.books);
-  await replaceAll("wantToRead", newWant);
-  books = backup.books;
-  wantList = newWant;
+  status().textContent = "Saving…";
+  await replaceEverything(backup.books, newWant);
+  books = await loadBooks();
+  wantList = await loadWantList();
   refresh();
   status().textContent = `Done: ${books.length} books and ${wantList.length} want to read restored.`;
 }
@@ -633,17 +697,20 @@ async function showEditionCovers(book) {
 // Saves a new cover for the book on screen, then goes back to its page.
 async function setCover(changes) {
   const book = books.find((b) => b.id === location.hash.split("/")[1]);
-  Object.assign(book, changes); // copies the changed fields onto the book
-  await save("books", book);
+  await saveBook({ ...book, ...changes });
+  Object.assign(book, changes); // only once it's safely saved
   returnToBook(book.id);
 }
 
 async function useCoverPhoto(file) {
+  let photo;
   try {
-    setCover({ coverPhoto: await shrinkPhoto(file) });
+    photo = await shrinkPhoto(file);
   } catch (error) {
     document.querySelector(".cover-picker .hint").textContent = "That photo couldn’t be read. Try another.";
+    return;
   }
+  setCover({ coverPhoto: photo });
 }
 
 // Phone photos are huge (often 3MB+). This redraws the photo at most 600px tall on an invisible
@@ -675,11 +742,11 @@ function bookScreen(book) {
   return `
     <div class="bar">
       <a class="back" href="#">‹ Back</a>
-      <a class="edit" href="#edit/${book.id}">Edit</a>
+      ${canEdit() ? `<a class="edit" href="#edit/${book.id}">Edit</a>` : ""}
     </div>
     <article class="book">
       ${cover(book, "large")}
-      <a class="change-cover" href="#cover/${book.id}">Change cover</a>
+      ${canEdit() ? `<a class="change-cover" href="#cover/${book.id}">Change cover</a>` : ""}
       <h1>${esc(book.title)}</h1>
       <p class="author">${esc(book.author)}</p>
       <p class="meta">${book.type === "fiction" ? "Fiction" : "Non-fiction"}</p>
@@ -688,7 +755,7 @@ function bookScreen(book) {
         <div><dt>Read</dt><dd>${book.year}</dd></div>
       </dl>
       <div class="ratings">${rows.join("")}</div>
-      ${average(book) === null ? '<p class="hint unrated">Not rated yet. Tap Edit to rate it.</p>' : ""}
+      ${average(book) === null ? `<p class="hint unrated">Not rated yet.${canEdit() ? " Tap Edit to rate it." : ""}</p>` : ""}
       ${book.review ? `<p class="review">${esc(book.review)}</p>` : ""}
     </article>`;
 }
@@ -797,7 +864,7 @@ async function handleSave(form) {
     review: form.elements.review.value.trim(),
   };
 
-  await save("books", book);
+  await saveBook(book);
   books = books.filter((b) => b.id !== book.id).concat(book);
 
   // Logged from the Want to read list? Then it comes off that list.
@@ -822,7 +889,7 @@ async function handleDelete(id) {
   const book = books.find((b) => b.id === id);
   // confirm() shows the phone's own "OK / Cancel" pop-up, a safety net against accidental taps.
   if (!confirm(`Delete “${book.title}”? This can’t be undone.`)) return;
-  await remove("books", id);
+  await deleteBook(id);
   books = books.filter((b) => b.id !== id);
   location.replace("#");
 }

@@ -28,7 +28,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 
 - **Web app, not native iOS.** One codebase for laptop and phone. Free, no Apple developer account, and it teaches web fundamentals. Native Swift would mean installing Xcode, and the app would expire on the phone every 7 days without a $99/year account.
 - **Plain HTML/CSS/JS.** Every line is readable, with no hidden machinery.
-- **Local browser storage (IndexedDB) first.** Photos are too big for localStorage (~5MB limit). Export/import is the backup until there's a cloud database.
+- **Storage: Supabase** (project `yooxqwqqfvyvcaqwsmpb`, Sydney). The site stays on GitHub Pages; the app talks to Supabase with plain `fetch` (no library). **Anyone can view; only a device that knows the passphrase can change things.** There's no sign-in, at the owner's request. Writes go only through passphrase-checked database functions (`supabase/setup.sql`), and the passphrase is stored only as a bcrypt hash in `private.settings`. Want to read is private (passphrase needed to read it). The publishable key in `app.js` is public by design. Never put the secret key or the database password in the code. (Earlier versions used the browser's IndexedDB; that was replaced because each device kept its own copy.)
 - **No dates, just year + position.** Logging works like Letterboxd. Reading order matters, not the exact day.
 - **Category ratings only, out of 5, all optional.** The overall score is calculated from the scored categories, never stored (single source of truth).
 - **Different categories for fiction and non-fiction**, kept in one `CATEGORIES` setting in the code (configuration, not data).
@@ -57,11 +57,11 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - Phase 1 is in progress. Run the app with `python3 -m http.server 8000`.
   - Done: the home list (newest first), the fiction/non-fiction switch, the book screen, the log form (round + button) with tappable rating icons, and edit/delete. The same form is used for adding and editing; delete asks to confirm first.
   - Done: renamed to "Mohnblume's Bookshelf"; Published (Open Library) vs Read years; Want to read list at the bottom; 2025 list (52 books) added to `books.json`.
-  - IndexedDB v2 has three stores: `books`, `wantToRead` and `meta`. `meta.starterIds` records which `books.json` books have been copied in, so new starter books get added once and deleted ones stay deleted.
+  - The app no longer reads `books.json`; the books live in Supabase. The file stays for `design-options.html` and as a record of the starting lists.
   - Open Library years are often wrong for classics and translations. Known corrections are in `books.json`; a year the owner types is never overwritten.
   - Done: backup (export/import, replace with confirmation) and covers (automatic lookup, an editions picker, own photo).
   - Phases 1–3 are complete. Phase 4 is mostly done: the app has an icon and manifest (`icons/`, `manifest.json`) and is online. Still to do: the owner adds it to their iPhone home screen and imports a backup there.
-  - On iPhone, a home-screen app has storage separate from Safari's, so the backup must be imported inside the home-screen app.
+  - On iPhone, a home-screen app has storage separate from Safari's, so it needs unlocking separately (the passphrase is remembered per device, in localStorage).
   - Book lookups key off `olKey`: `undefined` means look it up in the background. The automatic lookup uses a precise title+author search. Picking "most editions" was tested and was worse (it chose study guides and the wrong Harry Potter).
   - The cover picker also pulls editions from the top 3 general-search matches, because the precise match is sometimes an empty duplicate record (Lord of the Rings, The Sailor…).
   - The app handles being open in two tabs: an old tab closes its database and reloads when a newer version needs it.
@@ -70,4 +70,4 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - **Design: Paper was chosen**, and it's what `style.css` already uses. Keep new screens in this style. The other options remain in `design-options.html` for reference. The spine shelf was set aside for now (the owner's call); it's still in `design-options.html` if wanted later.
 - Ideas (recommendations, partner sharing, feature list) are in `docs/IDEAS.md`. The Open Library guide is in `docs/OPEN_LIBRARY.md`.
 - Python's server lets browsers cache old files. After code changes, hard-refresh (Cmd+Shift+R).
-- When testing, use port 8001 so the test data stays apart from the owner's real data on 8000. Delete the test database afterwards.
+- **Testing touches the real Supabase database** (there's no separate test copy). Test with clearly-named test books, delete them afterwards, and never wipe or replace everything without the owner's go-ahead. Never ask for the passphrase or use it; the temporary test passphrase from setup was replaced by the owner's own.

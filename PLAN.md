@@ -16,7 +16,7 @@ Related docs: `docs/OPEN_LIBRARY.md` (how book details are looked up) · `docs/I
 - Books grouped by year, most recently read at the top.
 - Each book shows its cover, title, author and an overall score as five dots (rounded to the nearest half, e.g. ●●●◐○). Unrated books show no dots.
 - At the very bottom: a small **Want to read** list. Type "Title by Author" to add, tap **Read** to log one (the form opens filled in), and × to remove.
-- Below that: a quiet **Backup** link showing when you last exported.
+- Below that: a quiet **Backup** link, and **Unlock / Lock**. Visitors see only the shelf: no +, Want to read or Backup.
 
 **Book screen** (tap a book)
 - Large cover with a **Change cover** link, then title, author, fiction or non-fiction.
@@ -50,13 +50,12 @@ Each category is scored out of 5. The overall score is **calculated** from which
 
 ## Data
 
-Saved in the browser's IndexedDB (database version 2), which has three stores:
+Saved in **Supabase** (a cloud database), so every device shows the same shelf. Anyone can view it; only a device unlocked with the passphrase can change it. Setup and privacy rules: `supabase/setup.sql`.
 
-- `books`: logged books.
-- `wantToRead`: `{ id, title, author, added }`.
-- `meta`: the app's own notes, e.g. which starter books have already been copied in.
+- `books`: one row per book (the fields below, in snake_case).
+- `want_to_read`: `{ id, title, author, added }`, readable only with the passphrase.
 
-`books.json` is the starter list: 2026 (12 books) and 2025 (52 books). Any starter book a browser hasn't seen is copied in once. Deleted books stay deleted.
+`books.json` holds the original 2025 and 2026 lists. The app no longer reads it.
 
 ```json
 {
@@ -98,7 +97,9 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
   - [x] App icon and manifest for the home screen
   - [x] Online with GitHub Pages: https://mohnblumen.github.io/bookshelf/
   - [ ] Added to the iPhone home screen, with a backup imported there
-- [ ] **Phase 5, sync and sharing:** a cloud database (Supabase), so phone and laptop share one list and your partner can see your shelf. See `docs/IDEAS.md`.
+- [ ] **Phase 5, sync and sharing**
+  - [x] Cloud database (Supabase): phone and laptop share one shelf, anyone can view it, and only the passphrase can change it
+  - [ ] Your partner's own shelf. See `docs/IDEAS.md`.
 
 **Later:** recommendations, year in review, shelf view, search and more. See `docs/IDEAS.md`.
 

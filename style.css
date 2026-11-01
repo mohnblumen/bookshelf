@@ -721,3 +721,24 @@ img.cover.large {
   font-size: 24px;
   padding: 18px;
 }
+
+/* ---------- Unlock ---------- */
+
+/* The quieter second link under Backup ("Unlock to edit" / "This device can edit · Lock"). */
+.backup-link.quiet {
+  margin-top: 12px;
+  opacity: 0.7;
+}
+
+/* 17px again stops the iPhone zooming in on the box. */
+.unlock-form input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: 17px var(--sans);
+}
