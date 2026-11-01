@@ -9,6 +9,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - The app is called **Mohnblume's Bookshelf**. Use the handle **mohnblumen** wherever a name is needed.
 - Git author: `mohnblumen <349276585+mohnblumen@users.noreply.github.com>` (set globally).
 - Refer to the owner as "the owner" or "you" in docs.
+- **Never merge pull requests on GitHub** (the web button or `gh pr merge`). GitHub creates that merge commit with the account's primary email, which leaked it once. Instead, merge locally with `git merge --ff-only <branch>` on `main`, then push `main`. GitHub marks the PR as merged by itself.
 - Before every push, check: `git grep -i -E "<first name>|<surname>|gmail"` and the commit authors. The real name and email aren't written here on purpose; the owner's home folder path contains the name, so never paste local paths into committed files.
 
 ## Who this is for and how to work
