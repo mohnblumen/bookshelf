@@ -96,7 +96,7 @@ Saved in **Supabase** (a cloud database), so every device shows the same shelf. 
 - [ ] **Phase 4, iPhone**
   - [x] App icon and manifest for the home screen
   - [x] Online with GitHub Pages: https://mohnblumen.github.io/bookshelf/
-  - [ ] Added to the iPhone home screen, with a backup imported there
+  - [ ] Added to the iPhone home screen and unlocked with the passphrase (your step)
 - [ ] **Phase 5, sync and sharing**
   - [x] Cloud database (Supabase): phone and laptop share one shelf, anyone can view it, and only the passphrase can change it
   - [ ] Your partner's own shelf. See `docs/IDEAS.md`.

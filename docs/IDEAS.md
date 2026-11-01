@@ -45,14 +45,21 @@ The app sends your books and reviews to an AI (like Claude) and shows suggestion
 
 This means two people, each with their own shelf, able to see each other's books and ratings.
 
-### What it needs
+### Where things stand (November 2026)
 
-Right now, everything lives **inside one browser on one device**. To share, the books have to live somewhere both of you can reach. That needs four things:
+- ✅ **Online:** the app is at https://mohnblumen.github.io/bookshelf/
+- ✅ **Cloud database:** your books are in Supabase, shared by all your devices.
+- ✅ **View-only sharing already works:** send your partner the link, and they can browse your shelf but can't change it.
 
-1. **Going online** (Phase 4): the app gets a web address.
-2. **A cloud database:** a shared home for the books, instead of each browser's own storage. [Supabase](https://supabase.com) is a good fit: free for a project this size, and beginner-friendly.
-3. **Accounts:** each of you signs in, so the app knows whose shelf is whose. Supabase includes sign-in (an email link, so there are no passwords to manage).
-4. **Permissions:** rules like "you can see your partner's books, but only edit your own". Supabase handles this with "row-level security": rules attached to each row of data.
+### What a second shelf would need
+
+Right now the database holds **one** shelf, unlocked with **one** passphrase. For your partner to have their own:
+
+1. **An owner on every book:** a column saying whose shelf each book belongs to.
+2. **A passphrase per person** (or proper sign-in), so each of you can only edit your own shelf.
+3. **A way to pick a shelf**, e.g. `…/bookshelf/#shelf/partner`, so a link can point to either one.
+
+The privacy rules already work this way ("anyone can read, only the passphrase can change"); they'd just need to know *whose* passphrase goes with *which* books.
 
 ### What it would look like
 
@@ -60,17 +67,9 @@ Right now, everything lives **inside one browser on one device**. To share, the 
 - A small switch or menu: **"Mine · [partner's]"** to flip between shelves. Theirs is read-only.
 - Maybe later: "You both read *Stoner*", showing both sets of ratings side by side.
 
-### A useful side-effect
-
-The same cloud database also solves **syncing between your phone and laptop**, which is already on the plan. So the sharing work isn't wasted effort: sync comes first, and sharing is a fairly small step on top of it.
-
-### A simpler stopgap
-
-Your partner could run their own copy of the app, and you swap **backup files** (once export/import exists). It's clunky, but it costs nothing and needs no accounts.
-
 ### Recommendation
 
-Plan it as **Phase 5: sync and sharing**, after the app is online. Nothing built so far needs to change for it: every book already has a unique `id`, which is what a shared database needs. One small thing for later: "Mohnblume's Bookshelf" would become a name each person sets.
+This is the natural next step of Phase 5, and a medium-sized one: adding an owner to each book, a passphrase per person, and a shelf picker. One small thing too: "Mohnblume's Bookshelf" would become a name each person sets.
 
 ---
 
@@ -78,13 +77,9 @@ Plan it as **Phase 5: sync and sharing**, after the app is online. Nothing built
 
 Effort: **S** = an hour or two · **M** = a session or two · **L** = bigger, usually needs being online first.
 
-### Already planned
+### Already done
 
-| Feature | Effort | Notes |
-|---|---|---|
-| Backup: export/import a file | S | The next thing to build. Protects your books while they live in one browser. |
-| Real covers from Open Library + photo option | M | Phase 3. Shows several editions to pick from. |
-| Online + on your iPhone home screen | M | Phase 4. Needs a GitHub account. |
+Backup (export/import) · real covers and the photo option · online with GitHub Pages · iPhone home-screen icon · cloud storage in Supabase with passphrase editing · List and Mosaic layouts.
 
 ### New ideas
 
@@ -93,7 +88,7 @@ Effort: **S** = an hour or two · **M** = a session or two · **L** = bigger, us
 | **Year in review** | M | Books per year, fiction vs non-fiction, average for each category, most-read authors (J.K. Rowling 7, Helen Garner 5 so far). A Letterboxd-style summary card. |
 | **Shelf view** | S–M | The spine shelf from the design options as its own screen. Tap a spine to open the book. |
 | **Author pages** | S | Tap an author to see every book of theirs you've read, with your ratings side by side. |
-| **Search** | S | A search box for title or author. Worth it as the list grows (you're at 64 already). |
+| **Search** | S | A search box for title or author. Worth it as the list grows (you're at 65 already). |
 | **Reading goal** | S | "52 books in 2026", with a small progress bar on the year heading. |
 | **Favourites** | S | A small heart on a book, and "Top books of the year". |
 | **Currently reading** | S | A third state, alongside read and want to read. It would sit at the top of the home screen. |
@@ -105,8 +100,8 @@ Effort: **S** = an hour or two · **M** = a session or two · **L** = bigger, us
 | **Scan a barcode to add** | M–L | Point the camera at the ISBN barcode, and the title, author and cover fill in. iPhone Safari doesn't have built-in barcode reading, so it needs a small library. |
 | **Import from Goodreads** | S–M | If you have Goodreads history, it can be exported as a CSV file and read in. |
 | **Recommendations** | S → L | See idea 1 above. |
-| **Partner's shelf** | L | See idea 2 above. |
+| **Partner's shelf** | M | See idea 2 above. The cloud database is already in place. |
 
 ### Where I'd start
 
-**Backup first** (it's a safety net), then **covers** (the biggest visual improvement), then **year in review** (the most fun).
+Backup and covers are done. Next: **year in review** (the most fun), **search** (handy as the shelf grows), then **your partner's shelf**.
