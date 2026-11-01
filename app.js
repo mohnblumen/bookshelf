@@ -567,8 +567,9 @@ async function importBackup(file) {
     status().textContent = "That file isn’t a backup (it couldn’t be read as JSON). Nothing was changed.";
     return;
   }
+  // Any label ending in "bookshelf" counts, so backups made under the app's earlier name still import.
   const looksRight =
-    backup.app === BACKUP_LABEL &&
+    /bookshelf$/.test(backup.app) &&
     Array.isArray(backup.books) &&
     backup.books.every((b) => b.id && b.title && b.year && CATEGORIES[b.type]);
   if (!looksRight) {

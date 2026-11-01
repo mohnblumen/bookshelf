@@ -2,6 +2,15 @@
 
 The full spec and roadmap are in `PLAN.md`. This file covers how to work on the project and why decisions were made.
 
+## Privacy rule (permanent)
+
+**Never put the owner's real name or personal email anywhere in this project.** That covers code, docs, file names, commit authors and messages, tags, pull requests and GitHub. The project is public.
+
+- The app is called **Mohnblume's Bookshelf**. Use the handle **mohnblumen** wherever a name is needed.
+- Git author: `mohnblumen <349276585+mohnblumen@users.noreply.github.com>` (set globally).
+- Refer to the owner as "the owner" or "you" in docs.
+- Before every push, check: `git grep -i -E "<first name>|<surname>|gmail"` and the commit authors. The real name and email aren't written here on purpose; the owner's home folder path contains the name, so never paste local paths into committed files.
+
 ## Who this is for and how to work
 
 - The owner is learning to code. This is their first project, so **teaching matters as much as the app**.
@@ -10,7 +19,7 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - Prefer the simplest thing that works. Avoid frameworks, build tools and new installs unless there's a clear reason, and explain the reason.
 - **On GitHub:** repo `mohnblumen/bookshelf` (public), live at https://mohnblumen.github.io/bookshelf/ through GitHub Pages, which serves `main` from the root. A push to `main` updates the live site in about a minute.
 - **Claude manages Git:** commit tested chunks of work without asking, and say briefly what was committed. **Work on a branch and open a pull request**; never push straight to `main`, because `main` is the live site.
-- Commits use the private noreply email `349276585+mohnblumen@users.noreply.github.com` (set globally). History was rewritten from Gmail before the first push; never reintroduce the Gmail address.
+- Commits use the handle and private noreply email above. The history was rewritten to remove the owner's real name and email, and the GitHub repo was recreated, so nothing older survives online.
 - The GitHub CLI `gh` is installed at `~/.local/bin/gh` (the official zip, checksum-verified; there's no Homebrew), and `~/.zshrc` adds that folder to PATH. In non-interactive shells, prefix commands with `PATH="$HOME/.local/bin:$PATH"`.
 - Main device: **iPhone**. Development happens on a Mac.
 
