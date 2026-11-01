@@ -83,7 +83,8 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
 ## Tech choices
 
 - Plain **HTML, CSS and JavaScript**: no framework, no build tools.
-- **Git** for snapshots (local; GitHub later).
+- **Git** for snapshots, uploaded to GitHub (`mohnblumen/bookshelf`).
+- **GitHub Pages** hosts the live site at https://mohnblumen.github.io/bookshelf/.
 - **Python's built-in server** for `localhost`.
 - **Open Library** for publication years, and covers later (free, no account).
 
@@ -93,7 +94,10 @@ Saved in the browser's IndexedDB (database version 2), which has three stores:
 - [x] **Phase 1, the core:** home list, filter, book screen; log, edit, delete; ratings; publication years; Want to read; 2025 list; backup.
 - [x] **Phase 2, design:** chose **Paper** from `design-options.html` (warm off-white, Iowan Old Style + system sans; nothing extra to load). It's already applied.
 - [x] **Phase 3, covers:** automatic covers from Open Library, an editions picker, and your own photo.
-- [ ] **Phase 4, iPhone:** first over home Wi-Fi, then online (needs a GitHub account) and added to the home screen.
+- [ ] **Phase 4, iPhone**
+  - [x] App icon and manifest for the home screen
+  - [x] Online with GitHub Pages: https://mohnblumen.github.io/bookshelf/
+  - [ ] Added to the iPhone home screen, with a backup imported there
 - [ ] **Phase 5, sync and sharing:** a cloud database (Supabase), so phone and laptop share one list and your partner can see your shelf. See `docs/IDEAS.md`.
 
 **Later:** recommendations, year in review, shelf view, search and more. See `docs/IDEAS.md`.

@@ -8,8 +8,10 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
 - Explain every decision and trade-off in plain language, and explain each command before it's run.
 - **Don't build anything without a specific instruction.** Plan first, then build when asked.
 - Prefer the simplest thing that works. Avoid frameworks, build tools and new installs unless there's a clear reason, and explain the reason.
-- There's no GitHub account yet. Git is local only.
-- **Claude manages Git:** commit tested chunks of work without asking, and say briefly what was committed. Commits go on `main` until GitHub exists. After that, use branches and PRs.
+- **On GitHub:** repo `mohnblumen/bookshelf` (public), live at https://mohnblumen.github.io/bookshelf/ through GitHub Pages, which serves `main` from the root. A push to `main` updates the live site in about a minute.
+- **Claude manages Git:** commit tested chunks of work without asking, and say briefly what was committed. **Work on a branch and open a pull request**; never push straight to `main`, because `main` is the live site.
+- Commits use the private noreply email `349276585+mohnblumen@users.noreply.github.com` (set globally). History was rewritten from Gmail before the first push; never reintroduce the Gmail address.
+- The GitHub CLI `gh` is installed at `~/.local/bin/gh` (the official zip, checksum-verified; there's no Homebrew), and `~/.zshrc` adds that folder to PATH. In non-interactive shells, prefix commands with `PATH="$HOME/.local/bin:$PATH"`.
 - Main device: **iPhone**. Development happens on a Mac.
 
 ## Decisions so far (and why)
@@ -48,7 +50,8 @@ The full spec and roadmap are in `PLAN.md`. This file covers how to work on the 
   - IndexedDB v2 has three stores: `books`, `wantToRead` and `meta`. `meta.starterIds` records which `books.json` books have been copied in, so new starter books get added once and deleted ones stay deleted.
   - Open Library years are often wrong for classics and translations. Known corrections are in `books.json`; a year the owner types is never overwritten.
   - Done: backup (export/import, replace with confirmation) and covers (automatic lookup, an editions picker, own photo).
-  - Phases 1–3 are complete. Next is Phase 4 (on the iPhone, then online). Wait for the go-ahead before building.
+  - Phases 1–3 are complete. Phase 4 is mostly done: the app has an icon and manifest (`icons/`, `manifest.json`) and is online. Still to do: the owner adds it to their iPhone home screen and imports a backup there.
+  - On iPhone, a home-screen app has storage separate from Safari's, so the backup must be imported inside the home-screen app.
   - Book lookups key off `olKey`: `undefined` means look it up in the background. The automatic lookup uses a precise title+author search. Picking "most editions" was tested and was worse (it chose study guides and the wrong Harry Potter).
   - The cover picker also pulls editions from the top 3 general-search matches, because the precise match is sometimes an empty duplicate record (Lord of the Rings, The Sailor…).
   - The app handles being open in two tabs: an old tab closes its database and reloads when a newer version needs it.
